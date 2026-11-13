@@ -36,3 +36,5 @@ h2 { font-size: 28px; margin: 0; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; font-size: 15px; }
 .stats b { font-size: 19px; }
 .share-msg { font-size: 13px; opacity: .85; max-width: 320px; white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+.share-img img { width: min(70vw, 280px); border-radius: 10px; display: block; -webkit-touch-callout: default; user-select: auto; -webkit-user-select: auto; }
+.panel { padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); justify-content: safe center; }

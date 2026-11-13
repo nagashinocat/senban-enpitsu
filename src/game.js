@@ -79,8 +79,16 @@ export function createGame(root, canvas, deps) {
       if (!blob) { if (msg) msg.textContent = `画像を作れませんでした。投稿文はこちら：\n${text}`; return; }
       const info = {};
       const res = await share.shareResult(blob, text, info);
-      if (msg && res === 'fallback') {
-        msg.textContent = info.copied ? '画像を保存しました。投稿文をコピーしました。' : `画像を保存しました。投稿文はこちら：\n${text}`;
+      if (res === 'fallback') {
+        // ダウンロードが使えない環境もあるので、カードを画面にも出して長押しで保存できるようにする
+        const box = root.querySelector('[data-share-img]');
+        if (box) {
+          box.innerHTML = '';
+          const img = document.createElement('img');
+          try { img.src = URL.createObjectURL(blob); } catch { /* 表示できなくても続ける */ }
+          img.alt = '結果カード'; box.appendChild(img);
+        }
+        if (msg) msg.textContent = info.copied ? '投稿文をコピーしました。画像は長押しで保存できます。' : `画像は長押しで保存できます。投稿文はこちら：\n${text}`;
       }
     } catch {
       if (msg) msg.textContent = `共有できませんでした。投稿文はこちら：\n${text}`;
@@ -173,7 +181,7 @@ export function createGame(root, canvas, deps) {
         <div class="rank rank-${r.rank}">${r.rank}</div>
         <div class="stats"><div>一致率 <b>${r.match.toFixed(1)}%</b></div><div>タイム <b>${r.seconds.toFixed(1)}秒</b></div>
         <div>ボーナス <b>+${Math.round(r.bonus)}</b></div><div>合計 <b>${r.total}点</b></div></div>
-        <button class="btn" data-act="share">結果を共有</button><div class="share-msg" data-share-msg></div>
+        <button class="btn" data-act="share">結果を共有</button><div class="share-msg" data-share-msg></div><div class="share-img" data-share-img></div>
         <div class="row2"><button class="btn ghost" data-act="retry">もう一度</button><button class="btn primary" data-act="next">${last ? 'エンディングへ' : '次へ'}</button></div></div>`;
     } else if (name === 'ending') {
       html = `<div class="panel center">${ENDING.map((l) => `<p class="line">${esc(l)}</p>`).join('')}

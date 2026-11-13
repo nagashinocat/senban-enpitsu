@@ -17,7 +17,7 @@ function setup() {
   const game = createGame(document.getElementById('ui'), document.getElementById('stage'), f.deps);
   return { game, ...f };
 }
-beforeEach(() => { localStorage.clear(); _resetForTest(); });
+beforeEach(() => { localStorage.clear(); _resetForTest(); URL.createObjectURL = () => 'blob:x'; });
 
 test('C ランクでも次の面へ進める', () => {
   const { game } = setup();
@@ -76,7 +76,8 @@ test('共有できないとき、保存とコピーの案内が出る', async ()
   await game.onShare();
   expect(share.makeResultBlob.mock.calls[0][0].stageName).toBe('こけし');
   const msg = document.querySelector('[data-share-msg]').textContent;
-  expect(msg).toContain('画像を保存しました'); expect(msg).toContain('TEXT');
+  expect(msg).toContain('長押し'); expect(msg).toContain('TEXT');
+  expect(document.querySelector('[data-share-img] img')).not.toBeNull();
 });
 test('共有中にもう一度押しても二重に動かない', async () => {
   document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
