@@ -27,3 +27,10 @@ test('タイムボーナスは0..TIME_BONUS_MAX', () => {
 test('時間が NaN でも点数は数になる', () => {
   const p = createProfile(); expect(Number.isFinite(scoreResult(p, p.radii.slice(), NaN, 30).total)).toBe(true);
 });
+test('形が合っていなければタイムボーナスはつかない', () => {
+  const p = createProfile(); const t = new Float32Array(SAMPLES).fill(0.15);
+  expect(scoreResult(p, t, 1, 30).bonus).toBe(0);
+});
+test('一致率が高いほどタイムボーナスがそのまま効く', () => {
+  const p = createProfile(); expect(scoreResult(p, p.radii.slice(), 0, 30).bonus).toBe(200);
+});

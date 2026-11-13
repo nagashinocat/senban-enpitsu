@@ -1,12 +1,7 @@
+import { createGame } from './game.js';
 import { createScene } from './render/scene.js';
-import { createProfile, cutSweep } from './profile.js';
-import { STAGES, buildTarget } from './stages.js';
-const canvas = document.getElementById('stage');
-const scene = createScene(canvas);
-const p = createProfile();
-cutSweep(p, { x: 3.5, r: 0.25 }, { x: 5.8, r: 0.15 }, 0.05);
-scene.setProfile(p); scene.setTarget(buildTarget(STAGES[2])); scene.setTool({ x: 4, r: 0.3 });
-scene.emitChips(4, 0.1);
-let last = performance.now();
-(function loop(t) { scene.render(Math.min(0.05, (t - last) / 1000)); last = t; requestAnimationFrame(loop); })(last);
-addEventListener('resize', () => scene.resize());
+import { attachInput } from './input.js';
+import * as audio from './audio.js';
+
+const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { createScene, attachInput, audio });
+game.start();

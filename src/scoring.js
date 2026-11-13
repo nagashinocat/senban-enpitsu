@@ -27,7 +27,8 @@ export function rankOf(total) {
 
 export function scoreResult(profile, target, seconds, parSeconds) {
   const match = matchRate(profile, target);
-  const bonus = timeBonus(seconds, parSeconds);
+  // 形が合っているほどタイムボーナスが効く（何も削らずに即完成で稼げないように）
+  const bonus = timeBonus(seconds, parSeconds) * (match / 100);
   const total = Math.round(match * 10 + bonus);
   return { match, bonus, total, rank: rankOf(total) };
 }
