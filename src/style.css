@@ -59,13 +59,14 @@ h2 { font-size: 28px; margin: 0; }
 @keyframes stamp { 0% { opacity: 0; transform: rotate(-12deg) scale(3); } 70% { opacity: 1; transform: rotate(-12deg) scale(.9); } 100% { opacity: .92; transform: rotate(-12deg) scale(1); } }
 .result.thud { animation: thud .25s; }
 @keyframes thud { 30% { transform: translate(3px, 4px); } 60% { transform: translate(-3px, -2px); } }
-.master { display: flex; align-items: center; gap: 10px; width: min(86vw, 340px); opacity: 0; transform: translateX(-40px); transition: opacity .35s, transform .35s; }
+.master { display: flex; flex-direction: column; align-items: stretch; width: min(86vw, 340px); opacity: 0; transform: translateX(-40px); transition: opacity .35s, transform .35s; }
 .master.show { opacity: 1; transform: none; }
-.master-pic { width: 104px; flex: none; } .master-pic canvas { width: 100%; height: auto; display: block; }
-.master-say { flex: 1; text-align: left; }
-.master-name { font-size: 11px; opacity: .75; margin-bottom: 4px; letter-spacing: .05em; }
+.master-pic { width: 100%; } .master-pic canvas { width: 100%; height: auto; display: block; border-radius: 14px; box-shadow: 0 4px 0 #0006; }
+.master-say { text-align: left; margin: -22px 10px 0; position: relative; }
+.master-name { display: none; }
 .master-bubble { position: relative; background: #fff; color: #222; padding: 9px 12px; border-radius: 12px; font-weight: bold; font-size: 15px; line-height: 1.4; }
-.master-bubble::before { content: ""; position: absolute; left: -8px; top: 14px; border: 8px solid transparent; border-right-color: #fff; border-left: 0; }
+.master-bubble::before { content: ""; position: absolute; left: 28px; top: -8px; border: 8px solid transparent; border-bottom-color: #fff; border-top: 0; }
+.master-bubble { box-shadow: 0 3px 0 #0004; }
 .result-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; opacity: 0; pointer-events: none; transition: opacity .3s; }
 .result-actions.show { opacity: 1; } .result-actions.show .btn { pointer-events: auto; }
 .result-actions:not(.show) .btn { pointer-events: none; }

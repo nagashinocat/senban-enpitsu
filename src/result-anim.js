@@ -1,4 +1,13 @@
-import { drawMaster } from './master.js';
+import { drawMasterPhoto } from './master.js';
+import masterUrl from './assets/master.jpg';
+
+let masterImg = null;
+function loadMaster(cb) {
+  if (typeof Image === 'undefined') return;
+  if (!masterImg) { masterImg = new Image(); masterImg.src = masterUrl; }
+  if (masterImg.complete && masterImg.naturalWidth) cb(masterImg);
+  else masterImg.addEventListener('load', () => cb(masterImg), { once: true });
+}
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -29,7 +38,7 @@ export function resultHtml(r, { stageIndex, last }) {
       <div class="hanko rank-${r.rank}"><span class="hanko-rank">${esc(r.rank)}</span><span class="hanko-sub">判定</span></div>
     </div>
     <div class="result-side">
-    <div class="master"><div class="master-pic"><canvas width="208" height="243" data-mood="${esc(r.rank)}" aria-label="伝説の鉛筆削り名人"></canvas></div>
+    <div class="master"><div class="master-pic"><canvas width="680" height="300" data-mood="${esc(r.rank)}" aria-label="伝説の鉛筆削り名人"></canvas></div>
       <div class="master-say"><div class="master-name">伝説の鉛筆削り名人</div><div class="master-bubble" data-comment></div></div></div>
     <div class="result-actions">
       <button class="btn" data-act="share">結果を共有</button><div class="share-msg" data-share-msg></div><div class="share-img" data-share-img></div>
@@ -45,7 +54,7 @@ export function playResult(el, r, { audio = {}, setTimer = setTimeout, rng = Mat
   const $ = (s) => el.querySelector(s);
   const cv = $('.master-pic canvas');
   let ctx = null; try { ctx = cv?.getContext('2d'); } catch { ctx = null; }
-  if (ctx && globalThis.Path2D) drawMaster(ctx, r.rank, cv.width);
+  if (ctx) { drawMasterPhoto(ctx, null, r.rank, cv.width, cv.height); loadMaster((img) => drawMasterPhoto(ctx, img, r.rank, cv.width, cv.height)); }
   const comment = pickComment(r.rank, rng);
   let finished = false;
   const call = (fn, ...a) => { try { fn?.(...a); } catch { /* 音が出なくても続ける */ } };

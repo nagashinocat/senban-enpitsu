@@ -1,12 +1,17 @@
 <!doctype html><html><body style="margin:0;background:#20242b">
-<canvas id="c" width="960" height="330"></canvas>
+<canvas id="c" width="1400" height="720"></canvas>
 <script type="module">
-import { drawMaster } from '../src/master.js';
+import { drawMasterPhoto } from '../src/master.js';
+import url from '../src/assets/master.jpg';
 const ctx = document.getElementById('c').getContext('2d');
-ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
-['S','A','B','C'].forEach((m, i) => {
-  ctx.save(); ctx.translate(15 + i * 240, 10); drawMaster(ctx, m, 210); ctx.restore();
-  ctx.fillStyle = '#f4f1ea'; ctx.fillText(m, 120 + i * 240, 318);
-});
-document.title = 'ready';
+const img = new Image(); img.src = url;
+img.onload = () => {
+  ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = '#f4f1ea';
+  ['S','A','B','C'].forEach((m, i) => {
+    const x = 20 + (i % 2) * 690, y = 20 + Math.floor(i / 2) * 350;
+    ctx.save(); ctx.translate(x, y); drawMasterPhoto(ctx, img, m, 660, 300); ctx.restore();
+    ctx.fillStyle = '#f4f1ea'; ctx.fillText(m, x + 12, y + 336);
+  });
+  document.title = 'ready';
+};
 </script></body></html>

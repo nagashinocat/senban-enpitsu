@@ -1,20 +1,35 @@
-import { test, expect, vi, beforeAll } from 'vitest';
-import { drawMaster } from '../src/master.js';
+import { test, expect } from 'vitest';
+import { drawMasterPhoto } from '../src/master.js';
 
-beforeAll(() => { globalThis.Path2D = class { constructor(d) { this.d = d; } }; });
 function fakeCtx() {
-  const fills = [];
-  const ctx = new Proxy({ fills }, {
-    get(t, k) { if (k in t) return t[k]; if (k === 'fill') return () => fills.push(t._fillStyle); return () => {}; },
-    set(t, k, v) { if (k === 'fillStyle') t._fillStyle = v; t[k] = v; return true; },
+  const log = { images: 0, fills: [], ops: [] };
+  const ctx = new Proxy(log, {
+    get(t, k) {
+      if (k in t) return t[k];
+      if (k === 'drawImage') return () => { t.images++; };
+      if (k === 'fillRect' || k === 'fill') return () => t.fills.push(t._fillStyle);
+      if (k === 'createRadialGradient' || k === 'createLinearGradient') return () => ({ addColorStop() {} });
+      return () => {};
+    },
+    set(t, k, v) { if (k === 'fillStyle') t._fillStyle = v; if (k === 'globalCompositeOperation') t.ops.push(v); t[k] = v; return true; },
   });
   return ctx;
 }
-test('名人をキャンバスに描く（顔・ハチマキ・鉛筆）', () => {
-  const ctx = fakeCtx(); drawMaster(ctx, 'A', 120);
-  expect(ctx.fills).toContain('#f1c9a0'); expect(ctx.fills).toContain('#d6302b'); expect(ctx.fills).toContain('#f2b632');
+const img = { width: 1206, height: 575 };
+
+test('名人の画像を窓いっぱいに描く', () => {
+  const ctx = fakeCtx(); drawMasterPhoto(ctx, img, 'A', 600, 300);
+  expect(ctx.images).toBe(1);
 });
-test('S は星がきらきら、C は汗', () => {
-  const s = fakeCtx(); drawMaster(s, 'S', 120); expect(s.fills).toContain('#ffd84d');
-  const c = fakeCtx(); drawMaster(c, 'C', 120); expect(c.fills).toContain('#7fc8ff'); expect(c.fills).not.toContain('#ffd84d');
+test('S は金色の光と星', () => {
+  const ctx = fakeCtx(); drawMasterPhoto(ctx, img, 'S', 600, 300);
+  expect(ctx.fills).toContain('#ffd84d'); expect(ctx.ops).toContain('screen');
+});
+test('B は色あせ、C は青ざめて冷や汗', () => {
+  const b = fakeCtx(); drawMasterPhoto(b, img, 'B', 600, 300); expect(b.ops).toContain('saturation');
+  const c = fakeCtx(); drawMasterPhoto(c, img, 'C', 600, 300);
+  expect(c.ops).toContain('multiply'); expect(c.fills).toContain('#9fd8ff'); expect(c.fills).not.toContain('#ffd84d');
+});
+test('画像がまだ読めていなくても落ちない', () => {
+  const ctx = fakeCtx(); expect(() => drawMasterPhoto(ctx, null, 'S', 600, 300)).not.toThrow();
 });
