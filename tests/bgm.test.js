@@ -34,3 +34,16 @@ test('音を開始する前に止まっていたら、開始のたびに再開�
   expect(resumes.length).toBe(2);
   delete globalThis.AudioContext;
 });
+test('音を開始するとき、無音の音を一度流して音の出口を開く', async () => {
+  const started = [];
+  class FakeAC { constructor() { this.state = 'suspended'; this.currentTime = 0; this.sampleRate = 8000; this.destination = {}; }
+    resume() { return Promise.resolve(); }
+    createGain() { return { gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, cancelScheduledValues() {} }, connect() { return this; } }; }
+    createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; }
+    createBufferSource() { return { connect() { return this; }, start() { started.push(1); } }; } }
+  globalThis.AudioContext = FakeAC;
+  const { createBgm } = await import('../src/bgm.js?silent');
+  const bgm = createBgm(); bgm.unlock();
+  expect(started.length).toBeGreaterThanOrEqual(1);
+  delete globalThis.AudioContext;
+});

@@ -15,7 +15,11 @@ function noiseBuffer(c, seconds = 1) {
   return b;
 }
 
-export function unlock() { const c = ensure(); if (c && c.state === 'suspended') c.resume().catch(() => {}); }
+export function unlock() {
+  const c = ensure(); if (!c) return;
+  if (c.state !== 'running') c.resume().catch(() => {});
+  try { const s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, c.sampleRate); s.connect(c.destination); s.start(0); } catch { /* 開けなくても続ける */ }
+}
 
 export function startCutSound() {
   const c = ensure(); if (!c || noiseSrc) return;

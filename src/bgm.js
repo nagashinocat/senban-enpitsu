@@ -143,6 +143,11 @@ export async function renderTrack(name, seconds, sampleRate = 44100) {
   return ctx.startRendering();
 }
 
+// タップの中で無音を一度流して、音の出口を開く（iPhone）
+function kick(c) {
+  try { const s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, c.sampleRate); s.connect(c.destination); s.start(0); } catch { /* 開けなくても続ける */ }
+}
+
 const MUTE_KEY = 'senban-enpitsu:bgm-muted';
 
 export function createBgm() {
@@ -199,7 +204,8 @@ export function createBgm() {
     },
     unlock() {
       if (!ensure()) return;
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
+      kick(ctx);
       if (current && !events) begin();
     },
     setMuted(m) {

@@ -13,3 +13,20 @@ test('どれかが例外を投げても、ほかは開始する', () => {
   installAudioUnlock(window, [bad, ok]);
   window.dispatchEvent(new Event('pointerup')); expect(ok).toHaveBeenCalled();
 });
+test('iPhone の消音スイッチがオンでも鳴るよう、音の種類を「再生」にする', () => {
+  const session = { type: 'auto' };
+  Object.defineProperty(navigator, 'audioSession', { value: session, configurable: true });
+  installAudioUnlock(window, []);
+  window.dispatchEvent(new Event('touchend'));
+  expect(session.type).toBe('playback');
+  delete navigator.audioSession;
+});
+test('タップの中で、無音の音声を一度流して音の出口を開く', () => {
+  const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+  installAudioUnlock(window, []);
+  window.dispatchEvent(new Event('click'));
+  expect(play).toHaveBeenCalled();
+  const el = document.querySelector('audio[data-unlock]');
+  expect(el).not.toBeNull(); expect(el.src.startsWith('data:audio/wav')).toBe(true); expect(el.loop).toBe(true);
+  play.mockRestore();
+});
