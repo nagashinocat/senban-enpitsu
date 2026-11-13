@@ -25,6 +25,10 @@ for (let pass = 0; pass < 3; pass++) {
 await page.mouse.up();
 await shot('04-cutting');
 await click('[data-act="finish"]'); await shot('05-result');
+const cdp = await page.createCDPSession();
+await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: out });
+await click('[data-act="share"]'); await new Promise((r) => setTimeout(r, 1500));
+console.log('share msg:', await page.$eval('[data-share-msg]', (e) => e.textContent));
 // 折れ：一気に深く
 await click('[data-act="next"]'); await click('button[data-act="cut"]');
 await page.mouse.move(w * 0.5, h * 0.9); await page.mouse.down(); await page.mouse.move(w * 0.5, h * 0.89); await page.mouse.move(w * 0.5, 0); await page.mouse.up();

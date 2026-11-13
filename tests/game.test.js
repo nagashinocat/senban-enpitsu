@@ -66,3 +66,15 @@ test('タイトルから始めると導入が出る', () => {
   game.start(); expect(game.state.name).toBe('title');
   game.newGame(); expect(game.state.name).toBe('intro');
 });
+test('共有できないとき、保存とコピーの案内が出る', async () => {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps();
+  const share = { makeResultBlob: vi.fn(() => Promise.resolve(new Blob(['x']))), buildShareText: vi.fn(() => 'TEXT'),
+    shareResult: vi.fn(async (b, t, info) => { info.copied = false; return 'fallback'; }) };
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, share });
+  game.goto('cutting', 2); game.finish();
+  await game.onShare();
+  expect(share.makeResultBlob.mock.calls[0][0].stageName).toBe('こけし');
+  const msg = document.querySelector('[data-share-msg]').textContent;
+  expect(msg).toContain('画像を保存しました'); expect(msg).toContain('TEXT');
+});

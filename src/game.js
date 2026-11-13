@@ -3,23 +3,11 @@ import { isBroken } from './breakage.js';
 import { matchRate, scoreResult } from './scoring.js';
 import { STAGES, INTRO, ENDING, buildTarget } from './stages.js';
 import { screenToTool } from './input.js';
+import { drawSilhouette } from './silhouette.js';
 import { saveResult, loadRecords, clearedStageIds } from './storage.js';
-import { PENCIL_LENGTH, PENCIL_RADIUS, DEPTH_GAIN, TOOL_HALF_WIDTH, TOOL_REST_R } from './config.js';
+import { PENCIL_LENGTH, DEPTH_GAIN, TOOL_HALF_WIDTH, TOOL_REST_R } from './config.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-// 目標形のシルエットを小さなキャンバスに描く（話の絵・結果カード用）
-export function drawSilhouette(canvas, radii, { fill = '#e8c99a', dashed = false, color = '#7fe3ff' } = {}) {
-  const c = canvas.getContext?.('2d'); if (!c) return;
-  const w = canvas.width, h = canvas.height, n = radii.length;
-  const sx = w / (n - 1), sy = (h * 0.42) / PENCIL_RADIUS, cy = h / 2;
-  c.beginPath();
-  for (let i = 0; i < n; i++) c.lineTo(i * sx, cy - radii[i] * sy);
-  for (let i = n - 1; i >= 0; i--) c.lineTo(i * sx, cy + radii[i] * sy);
-  c.closePath();
-  if (dashed) { c.setLineDash([8, 6]); c.strokeStyle = color; c.lineWidth = 3; c.stroke(); c.setLineDash([]); }
-  else { c.fillStyle = fill; c.fill(); }
-}
 
 export function createGame(root, canvas, deps) {
   const { createScene, attachInput, audio, share } = deps;
@@ -79,6 +67,18 @@ export function createGame(root, canvas, deps) {
     if (i >= STAGES.length - 1) g.goto('ending', i); else g.goto('story', i + 1);
   };
   g.retry = () => g.goto('cutting', g.state.stage);
+  g.onShare = async () => {
+    if (!share || !g.lastResult) return;
+    const r = g.lastResult;
+    const msg = root.querySelector('[data-share-msg]');
+    const text = share.buildShareText(r);
+    const blob = await share.makeResultBlob({ image: scene.snapshot(), target: g.target, profile: g.profile, ...r });
+    const info = {};
+    const res = await share.shareResult(blob, text, info);
+    if (msg && res === 'fallback') {
+      msg.textContent = info.copied ? '画像を保存しました。投稿文をコピーしました。' : `画像を保存しました。投稿文はこちら：\n${text}`;
+    }
+  };
   g.unlockedStages = () => {
     const cleared = clearedStageIds();
     const out = [];
@@ -173,7 +173,7 @@ export function createGame(root, canvas, deps) {
         <h2>おしまい</h2><button class="btn primary" data-act="title">タイトルへ</button></div>`;
     }
     root.innerHTML = html;
-    root.querySelectorAll('[data-sil]').forEach((c) => drawSilhouette(c, buildTarget(st)));
+    root.querySelectorAll('[data-sil]').forEach((c) => { const ctx = c.getContext?.('2d'); if (ctx) drawSilhouette(ctx, buildTarget(st), { x: 6, y: 0, w: c.width - 12, h: c.height }); });
     if (name === 'cutting') { hud = root.querySelector('[data-hud]'); updateHud(); }
     on('[data-act="new"]', () => g.newGame());
     on('[data-act="cont"]', () => g.continueGame());
