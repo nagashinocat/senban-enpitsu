@@ -24,7 +24,7 @@ for (let pass = 0; pass < 3; pass++) {
 }
 await page.mouse.up();
 await shot('04-cutting');
-await click('[data-act="finish"]'); await shot('05-result');
+await click('[data-act="finish"]'); await new Promise((r) => setTimeout(r, 600)); await shot('05a-rolling'); await new Promise((r) => setTimeout(r, 5000)); await shot('05-result');
 const cdp = await page.createCDPSession();
 await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: out });
 await click('[data-act="share"]'); await new Promise((r) => setTimeout(r, 1500));

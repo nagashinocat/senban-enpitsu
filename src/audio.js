@@ -52,3 +52,13 @@ export function playBreak() {
 }
 export function playDing() { blip(880, 0.25, 'sine', 0.2); setTimeout(() => blip(1320, 0.35, 'sine', 0.2), 120); }
 export function vibrate(ms) { try { navigator.vibrate?.(ms); } catch { /* 非対応 */ } }
+export function playTick() { blip(1500 + Math.random() * 400, 0.03, 'square', 0.06); }
+export function playPop() { blip(660, 0.08, 'triangle', 0.3); setTimeout(() => blip(990, 0.1, 'triangle', 0.22), 40); }
+export function playStamp() {
+  const c = ensure(); if (!c) return;
+  blip(70, 0.35, 'sine', 0.7);
+  const s = c.createBufferSource(); s.buffer = noiseBuffer(c, 0.12);
+  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600;
+  const g = c.createGain(); g.gain.setValueAtTime(0.7, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.12);
+  s.connect(f).connect(g).connect(c.destination); s.start();
+}

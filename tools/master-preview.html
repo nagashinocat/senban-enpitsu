@@ -1,0 +1,12 @@
+<!doctype html><html><body style="margin:0;background:#20242b">
+<canvas id="c" width="960" height="330"></canvas>
+<script type="module">
+import { drawMaster } from '../src/master.js';
+const ctx = document.getElementById('c').getContext('2d');
+ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+['S','A','B','C'].forEach((m, i) => {
+  ctx.save(); ctx.translate(15 + i * 240, 10); drawMaster(ctx, m, 210); ctx.restore();
+  ctx.fillStyle = '#f4f1ea'; ctx.fillText(m, 120 + i * 240, 318);
+});
+document.title = 'ready';
+</script></body></html>

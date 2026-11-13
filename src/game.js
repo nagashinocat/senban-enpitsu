@@ -4,6 +4,7 @@ import { matchRate, scoreResult } from './scoring.js';
 import { STAGES, INTRO, ENDING, buildTarget, tipStartIndex } from './stages.js';
 import { screenToTool } from './input.js';
 import { drawSilhouette } from './silhouette.js';
+import { resultHtml, playResult } from './result-anim.js';
 import { saveResult, loadRecords, clearedStageIds } from './storage.js';
 import { PENCIL_LENGTH, DEPTH_GAIN, TOOL_HALF_WIDTH, TOOL_REST_R } from './config.js';
 
@@ -183,14 +184,7 @@ export function createGame(root, canvas, deps) {
       html = `<div class="panel center"><h2 class="boom">ポキッ！</h2><p class="line">折れた…</p>
         <button class="btn primary" data-act="retry">新しい鉛筆で</button></div>`;
     } else if (name === 'result') {
-      const r = g.lastResult; const last = stage >= STAGES.length - 1;
-      html = `<div class="panel center result">
-        <div class="kicker">第${stage + 1}面 ${esc(st.name)}</div>
-        <div class="rank rank-${r.rank}">${r.rank}</div>
-        <div class="stats"><div>一致率 <b>${r.match.toFixed(1)}%</b></div><div>タイム <b>${r.seconds.toFixed(1)}秒</b></div>
-        <div>ボーナス <b>+${Math.round(r.bonus)}</b></div><div>合計 <b>${r.total}点</b></div></div>
-        <button class="btn" data-act="share">結果を共有</button><div class="share-msg" data-share-msg></div><div class="share-img" data-share-img></div>
-        <div class="row2"><button class="btn ghost" data-act="retry">もう一度</button><button class="btn primary" data-act="next">${last ? 'エンディングへ' : '次へ'}</button></div></div>`;
+      html = resultHtml(g.lastResult, { stageIndex: stage, last: stage >= STAGES.length - 1 });
     } else if (name === 'ending') {
       html = `<div class="panel center">${ENDING.map((l) => `<p class="line">${esc(l)}</p>`).join('')}
         <h2>おしまい</h2><button class="btn primary" data-act="title">タイトルへ</button></div>`;
@@ -208,6 +202,11 @@ export function createGame(root, canvas, deps) {
     on('[data-act="retry"]', () => g.retry());
     on('[data-act="next"]', () => g.next());
     on('[data-act="share"]', () => g.onShare?.());
+    if (name === 'result') {
+      const panel = root.querySelector('[data-result]');
+      const ctl = playResult(panel, g.lastResult, { audio, setTimer: deps.setTimer || ((f, ms) => setTimeout(f, ms)) });
+      panel.addEventListener('click', () => ctl.skip());
+    }
     root.querySelectorAll('[data-stage]').forEach((b) => b.addEventListener('click', () => g.goto('story', +b.dataset.stage)));
   }
 

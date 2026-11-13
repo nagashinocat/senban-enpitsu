@@ -7,7 +7,7 @@ import { _resetForTest } from '../src/storage.js';
 function fakeDeps() {
   const scene = { view: { xMin: 0, xMax: 6, yMin: -1, yMax: 1 }, setProfile: vi.fn(), markDirty: vi.fn(), setTarget: vi.fn(),
     setTool: vi.fn(), setZoom: vi.fn(), setFocus: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
-  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), vibrate: vi.fn() };
+  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), playTick: vi.fn(), playPop: vi.fn(), playStamp: vi.fn(), vibrate: vi.fn() };
   let t = 0;
   return { scene, audio, deps: { createScene: () => scene, attachInput: vi.fn(() => () => {}), audio, now: () => t, raf: () => 0 }, tick: (s) => { t += s * 1000; } };
 }
@@ -124,4 +124,13 @@ test('削る面では、カメラが先端の部分に寄る', () => {
   const { game, scene } = setup();
   game.goto('cutting', 3); expect(scene.setFocus).toHaveBeenLastCalledWith(expect.any(Number));
   expect(scene.setFocus.mock.lastCall[0]).toBeGreaterThan(2.5);
+});
+test('結果の画面では演出が進み、タップで飛ばせる', () => {
+  const { game } = setup();
+  game.goto('cutting', 0); game.finish();
+  const panel = document.querySelector('[data-result]');
+  expect(document.querySelector('.result-actions').classList.contains('show')).toBe(false);
+  panel.click();
+  expect(document.querySelector('.result-actions').classList.contains('show')).toBe(true);
+  expect(document.querySelector('[data-comment]').textContent.length).toBeGreaterThan(0);
 });
