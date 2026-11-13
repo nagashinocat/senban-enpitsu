@@ -1,0 +1,33 @@
+import { PENCIL_RADIUS, OVERCUT_WEIGHT, MATCH_TOLERANCE, TIME_BONUS_MAX, RANKS } from './config.js';
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+export function matchRate(profile, target) {
+  const { radii } = profile;
+  const n = Math.min(radii.length, target.length);
+  if (!n) return 0;
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    const e = (radii[i] - target[i]) / PENCIL_RADIUS;
+    sum += e < 0 ? -e * OVERCUT_WEIGHT : e;
+  }
+  const m = sum / n;
+  return 100 * clamp(1 - m / MATCH_TOLERANCE, 0, 1);
+}
+
+export function timeBonus(seconds, parSeconds) {
+  if (!Number.isFinite(seconds) || !(parSeconds > 0)) return 0;
+  return TIME_BONUS_MAX * clamp(1 - seconds / (2 * parSeconds), 0, 1);
+}
+
+export function rankOf(total) {
+  for (const [rank, min] of RANKS) if (total >= min) return rank;
+  return 'C';
+}
+
+export function scoreResult(profile, target, seconds, parSeconds) {
+  const match = matchRate(profile, target);
+  const bonus = timeBonus(seconds, parSeconds);
+  const total = Math.round(match * 10 + bonus);
+  return { match, bonus, total, rank: rankOf(total) };
+}
