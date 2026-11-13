@@ -21,3 +21,16 @@ test('極みの曲は都節音階（D Eb G A Bb）で、ゆっくり、尺八と
 test('どの音も一周の中に収まる', () => {
   for (const k of Object.keys(TRACKS)) { const ev = trackEvents(k); for (const e of ev) { expect(e.t).toBeGreaterThanOrEqual(0); expect(e.t).toBeLessThan(ev.loop); } }
 });
+test('音を開始する前に止まっていたら、開始のたびに再開を試す', async () => {
+  const resumes = [];
+  class FakeAC { constructor() { this.state = 'suspended'; this.currentTime = 0; this.sampleRate = 8000; this.destination = {}; }
+    resume() { resumes.push(1); return Promise.resolve(); }
+    createGain() { return { gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, cancelScheduledValues() {} }, connect() { return this; } }; }
+    createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; } }
+  globalThis.AudioContext = FakeAC;
+  const { createBgm } = await import('../src/bgm.js');
+  const bgm = createBgm(); bgm.play('story');
+  bgm.unlock(); bgm.unlock();
+  expect(resumes.length).toBe(2);
+  delete globalThis.AudioContext;
+});

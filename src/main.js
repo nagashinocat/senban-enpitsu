@@ -4,12 +4,13 @@ import { attachInput } from './input.js';
 import * as audio from './audio.js';
 import * as share from './share.js';
 import { createBgm } from './bgm.js';
+import { installAudioUnlock } from './unlock.js';
 
 const bgm = createBgm();
 const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { createScene, attachInput, audio, share, bgm });
 
-// 音は最初に触ったときから鳴らせる
-addEventListener('pointerdown', () => bgm.unlock(), { capture: true });
+// 音は、ブラウザが認める操作（指を離す・クリックなど）の中で開始する
+installAudioUnlock(window, [() => bgm.unlock(), () => audio.unlock()]);
 
 // 音楽のオン・オフ
 const toggle = document.getElementById('bgm-toggle');
