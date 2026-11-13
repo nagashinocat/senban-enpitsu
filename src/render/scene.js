@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { PENCIL_LENGTH } from '../config.js';
+import { PENCIL_LENGTH, PENCIL_RADIUS } from '../config.js';
 import { SEG, createLatheGeometry, updateLatheGeometry } from './lathe.js';
+import { zoomRect, zoomCenter } from './zoom.js';
 
 const MARGIN = 0.5;      // 鉛筆の左右の余白（ワールド単位）
 const TILT = 0.35;       // 少し上から見下ろす角度（回転体なので輪郭は変わらない）
@@ -61,7 +62,34 @@ export function createScene(canvas) {
   let pNext = 0;
 
   let view = { xMin: -1, xMax: 1, yMin: -1, yMax: 1 };
+  // 拡大窓（ルーペ）：同じ向きの小さな正射影カメラで、刃のまわりだけ映す
+  const ZOOM_HALF_H = 0.3;
+  const zoomCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
+  let zoomOn = false, toolRef = { x: PENCIL_LENGTH / 2, r: 0.6 }, zc = null;
+  const borderColor = new THREE.Color('#7fe3ff');
+  const right = new THREE.Vector3(), up = new THREE.Vector3();
+  let cssW = 1, cssH = 1;
   let shake = 0;
+
+  function renderZoom() {
+    const pencilTopPx = cssH / 2 - PENCIL_RADIUS * (cssH / (camera.top - camera.bottom));
+    const r = zoomRect(cssW, cssH, { pencilTopPx });
+    const target = zoomCenter(profileRef, toolRef);
+    zc = zc ? { x: zc.x + (target.x - zc.x) * 0.25, y: zc.y + (target.y - zc.y) * 0.25 } : target;
+    const vy = cssH - r.y - r.h;
+    renderer.setScissorTest(true);
+    renderer.setScissor(r.x - 2, vy - 2, r.w + 4, r.h + 4);
+    renderer.setClearColor(borderColor, 1); renderer.clear();
+    renderer.setScissor(r.x, vy, r.w, r.h); renderer.setViewport(r.x, vy, r.w, r.h);
+    const hw = ZOOM_HALF_H * (r.w / r.h);
+    zoomCam.left = -hw; zoomCam.right = hw; zoomCam.top = ZOOM_HALF_H; zoomCam.bottom = -ZOOM_HALF_H;
+    zoomCam.updateProjectionMatrix();
+    zoomCam.quaternion.copy(camera.quaternion);
+    right.set(1, 0, 0).applyQuaternion(camera.quaternion); up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    zoomCam.position.copy(camera.position).addScaledVector(right, toX(zc.x)).addScaledVector(up, zc.y);
+    renderer.render(scene, zoomCam);
+    renderer.setScissorTest(false);
+  }
 
   const api = {
     get view() { return view; },
@@ -86,7 +114,8 @@ export function createScene(canvas) {
         overlay.add(l); lines.push(l);
       }
     },
-    setTool({ x, r }) { blade.position.set(toX(x), -r, 0.01); },
+    setTool({ x, r }) { toolRef = { x, r }; blade.position.set(toX(x), -r, 0.01); },
+    setZoom(on) { zoomOn = !!on; zc = null; },
     emitChips(x, amount) {
       const n = Math.min(30, Math.ceil(amount * 400));
       for (let k = 0; k < n; k++) {
@@ -99,7 +128,7 @@ export function createScene(canvas) {
     flashBreak() { shake = 0.4; },
     resize() {
       const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
-      renderer.setSize(w, h, false);
+      renderer.setSize(w, h, false); cssW = w; cssH = h;
       const halfW = PENCIL_LENGTH / 2 + MARGIN;
       const halfH = halfW * (h / w);
       // 横長の画面では高さに合わせる
@@ -120,7 +149,10 @@ export function createScene(canvas) {
       pGeom.attributes.position.needsUpdate = true;
       if (shake > 0) { shake -= dt; spin.position.set((Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, 0); }
       else spin.position.set(0, 0, 0);
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, cssW, cssH);
       renderer.render(scene, camera);
+      if (zoomOn && profileRef) renderZoom();
     },
     snapshot() { return renderer.domElement; },
     dispose() { renderer.dispose(); },

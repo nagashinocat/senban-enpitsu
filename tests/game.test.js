@@ -6,7 +6,7 @@ import { _resetForTest } from '../src/storage.js';
 
 function fakeDeps() {
   const scene = { view: { xMin: 0, xMax: 6, yMin: -1, yMax: 1 }, setProfile: vi.fn(), markDirty: vi.fn(), setTarget: vi.fn(),
-    setTool: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
+    setTool: vi.fn(), setZoom: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
   const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), vibrate: vi.fn() };
   let t = 0;
   return { scene, audio, deps: { createScene: () => scene, attachInput: vi.fn(() => () => {}), audio, now: () => t, raf: () => 0 }, tick: (s) => { t += s * 1000; } };
@@ -109,4 +109,14 @@ test('共有の途中で例外が出ても落ちず、投稿文を出す', async
   game.goto('cutting', 0); game.finish();
   await expect(game.onShare()).resolves.toBeUndefined();
   expect(document.querySelector('[data-share-msg]').textContent).toContain('TEXT');
+});
+test('削っている間だけ拡大窓が出る', () => {
+  const { game, scene } = setup();
+  game.goto('cutting', 0); expect(scene.setZoom).toHaveBeenLastCalledWith(true);
+  game.finish(); expect(scene.setZoom).toHaveBeenLastCalledWith(false);
+});
+test('削り始めたらヒントが消える（拡大窓と重ならないように）', () => {
+  const { game } = setup();
+  game.goto('cutting', 0); expect(document.querySelector('.hud-hint')).not.toBeNull();
+  game.handleStart(); expect(document.querySelector('.hud-hint')).toBeNull();
 });

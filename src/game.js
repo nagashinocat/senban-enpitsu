@@ -34,6 +34,7 @@ export function createGame(root, canvas, deps) {
   g.goto = (name, stage = g.state.stage) => {
     audio.stopCutSound();
     g.state = { name, stage };
+    scene.setZoom(name === 'cutting');
     if (name === 'cutting') {
       freshPencil();
       g.target = buildTarget(STAGES[stage]);
@@ -104,7 +105,10 @@ export function createGame(root, canvas, deps) {
   };
 
   // --- 操作：指の動きの差分で刃を動かす（深さは細かく） ---
-  g.handleStart = () => { ref = null; audio.unlock(); if (g.state.name === 'cutting') audio.startCutSound(); };
+  g.handleStart = () => {
+    ref = null; audio.unlock();
+    if (g.state.name === 'cutting') { audio.startCutSound(); root.querySelector('.hud-hint')?.remove(); }
+  };
   g.handleEnd = () => { ref = null; cutLevel = 0; audio.setCutIntensity(0); };
   g.handleMove = (p) => {
     if (g.state.name !== 'cutting') return;
