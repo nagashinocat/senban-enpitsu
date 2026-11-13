@@ -7,7 +7,7 @@ import { _resetForTest } from '../src/storage.js';
 function fakeDeps() {
   const scene = { view: { xMin: 0, xMax: 6, yMin: -1, yMax: 1 }, setProfile: vi.fn(), markDirty: vi.fn(), setTarget: vi.fn(),
     setTool: vi.fn(), setZoom: vi.fn(), setSpin: vi.fn(), setFocus: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
-  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), playTick: vi.fn(), playPop: vi.fn(), playStamp: vi.fn(), startMotor: vi.fn(), stopMotor: vi.fn(), vibrate: vi.fn() };
+  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), playTick: vi.fn(), playPop: vi.fn(), playStamp: vi.fn(), startMotor: vi.fn(), stopMotor: vi.fn(), setMotorTurbo: vi.fn(), playMeow: vi.fn(), vibrate: vi.fn() };
   let t = 0;
   return { scene, audio, deps: { createScene: () => scene, attachInput: vi.fn(() => () => {}), audio, now: () => t, raf: () => 0 }, tick: (s) => { t += s * 1000; } };
 }
@@ -198,4 +198,65 @@ test('場面に合わせて曲が切り替わる', () => {
   game.goto('cutting', 4); game.finish(); game.startKiwami(0); expect(bgm.play).toHaveBeenLastCalledWith('kiwami');
   game.goto('cutting'); expect(bgm.play).toHaveBeenLastCalledWith('kiwami');
   game.goto('title', 0); expect(bgm.play).toHaveBeenLastCalledWith('story');
+});
+
+function hardSetup(rngValues) {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps(); let i = 0;
+  const rng = () => rngValues[i++ % rngValues.length];
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, rng });
+  return { game, ...f };
+}
+test('難易度はタイトルで切り替えられ、次に開いた時も残る', () => {
+  const { game } = setup();
+  game.start(); expect(document.querySelector('[data-act="difficulty"]').textContent).toContain('ふつう');
+  document.querySelector('[data-act="difficulty"]').click();
+  expect(game.difficulty).toBe('hard'); expect(document.querySelector('[data-act="difficulty"]').textContent).toContain('ハード');
+  const again = setup(); expect(again.game.difficulty).toBe('hard');
+});
+test('ふつうでは猫は来ない', () => {
+  const { game, tick } = hardSetup([0]);
+  game.goto('cutting', 0); game.toggleLathe();
+  for (let k = 0; k < 60; k++) { tick(1); game.tickCat(); }
+  expect(document.querySelector('[data-cat]').className).not.toContain('show');
+});
+test('ハード：猫が長押しすると、止められない高速回転になり、折れやすくなる', () => {
+  const { game, tick, scene, audio } = hardSetup([0, 0.2, 0.5]);
+  game.setDifficulty('hard');
+  game.goto('cutting', 0); game.toggleLathe(); game.toggleLathe(); // 回して止めておく
+  const base = game.breakFactorNow();
+  tick(8); game.tickCat();
+  expect(document.querySelector('[data-cat]').className).toContain('peek');
+  tick(1); game.tickCat();
+  expect(game.spinning).toBe(true); expect(scene.setSpin).toHaveBeenLastCalledWith(true, true);
+  expect(game.breakFactorNow()).toBeCloseTo(base / 2);
+  game.toggleLathe(); expect(game.spinning).toBe(true);           // 止められない
+  expect(document.querySelector('.cat-say').textContent).toContain('ぐいーっ');
+  tick(3); game.tickCat();
+  expect(game.spinning).toBe(false);                                // 元に戻る
+  expect(game.breakFactorNow()).toBeCloseTo(base);
+  expect(document.querySelector('[data-cat]').className).not.toContain('show');
+  expect(audio.playMeow).toHaveBeenCalled();
+});
+test('ハード：にゃにゃにゃにゃで回ったり止まったりする', () => {
+  const { game, tick } = hardSetup([0, 0.9, 0.5]);
+  game.setDifficulty('hard');
+  game.goto('cutting', 0); game.toggleLathe();
+  tick(8); game.tickCat(); tick(1); game.tickCat();
+  expect(document.querySelector('.cat-say').textContent).toBe('にゃにゃにゃにゃ！');
+  const states = new Set([game.spinning]); let flips = 0, prev = game.spinning;
+  for (let k = 0; k < 40; k++) { tick(0.05); game.tickCat(); if (game.spinning !== prev) { flips++; prev = game.spinning; } states.add(game.spinning); }
+  expect(flips).toBeGreaterThanOrEqual(6);
+  expect(document.querySelector('[data-cat]').className).not.toContain('show');
+});
+test('ハード：旋盤を回すまでは猫は来ず、面を出ると猫もいなくなる', () => {
+  const { game, tick } = hardSetup([0, 0.2]);
+  game.setDifficulty('hard');
+  game.goto('cutting', 0); tick(30); game.tickCat();
+  expect(document.querySelector('[data-cat]').className).not.toContain('show');
+  game.toggleLathe(); tick(8); game.tickCat(); tick(1); game.tickCat();
+  game.finish();
+  expect(game.spinning).toBe(false); expect(document.querySelector('[data-cat]')).toBeNull();
+  expect(game.lastResult.hard).toBe(true);
+  expect(document.querySelector('[data-result] .kicker').textContent).toContain('ハード');
 });

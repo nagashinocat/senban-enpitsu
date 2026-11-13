@@ -43,3 +43,6 @@ test('clipboard がなくても落ちない', async () => {
   Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
   const r = await shareResult(blob, 'hi'); expect(r).toBe('fallback');
 });
+test('ハードのときは投稿文にハードと入る', () => {
+  expect(buildShareText({ stageName: 'こけし', rank: 'A', total: 912, seconds: 28.43, hard: true })).toContain('ハード');
+});

@@ -3,6 +3,8 @@ import { isBroken } from './breakage.js';
 import { matchRate, scoreResult } from './scoring.js';
 import { STAGES, KIWAMI, KIWAMI_INVITE, INTRO, ENDING, buildTarget, tipStartIndex } from './stages.js';
 import { MATCH_TOLERANCE } from './config.js';
+import { initCat, stepCat } from './cat.js';
+import { drawCat } from './cat-draw.js';
 import { screenToTool } from './input.js';
 import { drawSilhouette } from './silhouette.js';
 import { resultHtml, playResult } from './result-anim.js';
@@ -33,13 +35,61 @@ export function createGame(root, canvas, deps) {
   };
   g.mode = 'story';
   g.spinning = false;
+  const rng = deps.rng || Math.random;
+  const DIFF_KEY = 'senban-enpitsu:difficulty';
+  g.difficulty = 'normal';
+  try { if (globalThis.localStorage?.getItem(DIFF_KEY) === 'hard') g.difficulty = 'hard'; } catch { /* 保存できなくてもよい */ }
+  g.setDifficulty = (d) => {
+    g.difficulty = d === 'hard' ? 'hard' : 'normal';
+    try { globalThis.localStorage?.setItem(DIFF_KEY, g.difficulty); } catch { /* 保存できなくてもよい */ }
+  };
+  // ハードの猫
+  let catState = null, catHold = false, catPrevSpin = false;
+  function showCat(pose, say) {
+    const el = root.querySelector('[data-cat]'); if (!el) return;
+    el.className = `cat show ${pose}`;
+    el.querySelector('.cat-say').textContent = say;
+    let c = null; try { c = el.querySelector('canvas').getContext('2d'); } catch { c = null; }
+    if (c) drawCat(c, pose, 160, 140);
+  }
+  function hideCat() { const el = root.querySelector('[data-cat]'); if (el) el.className = 'cat'; }
+  function resetCat() { catState = null; catHold = false; hideCat(); }
+  g.breakFactorNow = () => (L()[g.state.stage]?.breakFactor ?? 1) * (catHold ? 0.5 : 1);
+  g.tickCat = () => {
+    if (g.difficulty !== 'hard' || g.state.name !== 'cutting' || !catState) return;
+    for (let n = 0; n < 4; n++) {
+      const r = stepCat(catState, elapsed(), rng);
+      catState = r.cat;
+      if (!r.actions.length) break;
+      for (const a of r.actions) {
+        if (a === 'warn') { showCat('peek', 'にゃ？'); audio.playMeow?.('short'); }
+        else if (a === 'holdStart') {
+          catPrevSpin = g.spinning; catHold = true;
+          setSpinning(true, true);
+          showCat('hold', '（ぐいーっ）'); audio.playMeow?.('long'); audio.vibrate([60, 40, 60]);
+        } else if (a === 'holdEnd') {
+          catHold = false; setSpinning(catPrevSpin, true); hideCat();
+        } else if (a === 'nyaStart') { showCat('nya', 'にゃにゃにゃにゃ！'); audio.playMeow?.('nya'); }
+        else if (a === 'tap') setSpinning(!g.spinning, true);
+        else if (a === 'nyaEnd') hideCat();
+      }
+    }
+  };
   const elapsed = () => (startedAt == null ? 0 : (now() - startedAt) / 1000);
-  function setSpinning(on) {
-    if (g.spinning === on) return;
+  function setSpinning(on, byCat = false) {
+    const turboChanged = byCat;
+    if (g.spinning === on && !turboChanged) return;
+    const was = g.spinning;
     g.spinning = on;
-    scene.setSpin(on);
-    if (on) { audio.unlock(); audio.startMotor(); if (startedAt == null && g.state.name === 'cutting') startedAt = now(); }
-    else audio.stopMotor();
+    if (on && catHold) scene.setSpin(true, true); else scene.setSpin(on);
+    audio.setMotorTurbo?.(on && catHold);
+    if (on && !was) {
+      audio.unlock(); audio.startMotor();
+      if (startedAt == null && g.state.name === 'cutting') {
+        startedAt = now();
+        if (g.difficulty === 'hard') catState = initCat(0, rng);
+      }
+    } else if (!on && was) audio.stopMotor();
     const b = root.querySelector('[data-act="lathe"]');
     if (b) { b.classList.toggle('on', on); b.querySelector('[data-lathe-label]').textContent = on ? '止める' : '回す'; }
     root.querySelector('.hud-hint')?.classList.toggle('ready', on);
@@ -57,6 +107,7 @@ export function createGame(root, canvas, deps) {
   // --- 状態の切り替え ---
   g.goto = (name, stage = g.state.stage) => {
     audio.stopCutSound();
+    catHold = false; catState = null;
     setSpinning(false);
     if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') g.mode = 'story';
     if (name === 'kiwami') g.mode = 'kiwami';
@@ -90,7 +141,7 @@ export function createGame(root, canvas, deps) {
     const seconds = elapsed();
     const stage = L()[g.state.stage];
     const s = scoreResult(g.profile, g.target, seconds, stage.parSeconds, tipFrom, stage.tolerance ?? MATCH_TOLERANCE);
-    g.lastResult = { ...s, seconds, stageId: stage.id, stageName: stage.name };
+    g.lastResult = { ...s, seconds, stageId: stage.id, stageName: stage.name, hard: g.difficulty === 'hard' };
     saveResult(stage.id, { total: s.total, rank: s.rank, seconds });
     audio.playDing(); audio.vibrate(30);
     g.goto('result');
@@ -128,7 +179,7 @@ export function createGame(root, canvas, deps) {
       if (msg) msg.textContent = `共有できませんでした。投稿文はこちら：\n${text}`;
     } finally { sharing = false; }
   };
-  g.toggleLathe = () => { if (g.state.name === 'cutting') setSpinning(!g.spinning); };
+  g.toggleLathe = () => { if (g.state.name === 'cutting' && !catHold) setSpinning(!g.spinning); };
   g.kiwamiUnlocked = () => clearedStageIds().has(STAGES[STAGES.length - 1].id);
   g.startKiwami = (i = 0) => { g.mode = 'kiwami'; g.goto('story', i); };
   g.unlockedStages = () => {
@@ -166,7 +217,7 @@ export function createGame(root, canvas, deps) {
       scene.markDirty(); scene.emitChips(g.tool.x, cut.removed);
       cutLevel = Math.min(1, cutLevel + cut.removed * 3);
       audio.setCutIntensity(cutLevel);
-      if (isBroken(g.profile, cut, L()[g.state.stage].breakFactor)) {
+      if (isBroken(g.profile, cut, g.breakFactorNow())) {
         scene.flashBreak(); audio.stopCutSound(); audio.playBreak(); audio.vibrate([80, 40, 120]);
         g.goto('broken');
         return;
@@ -188,7 +239,7 @@ export function createGame(root, canvas, deps) {
   function render() {
     const { name, stage } = g.state;
     const st = L()[stage] || STAGES[0];
-    const label = g.mode === 'kiwami' ? `鉛筆削り道 極み 其の${'一二三四五'[stage]}` : `第${stage + 1}面`;
+    const label = (g.mode === 'kiwami' ? `鉛筆削り道 極み 其の${'一二三四五'[stage]}` : `第${stage + 1}面`) + (g.difficulty === 'hard' ? '【ハード】' : '');
     hud = null;
     let html = '';
     if (name === 'title') {
@@ -196,6 +247,7 @@ export function createGame(root, canvas, deps) {
       html = `<div class="panel center">
         <div class="kicker">鉛筆削りを忘れたので</div>
         <h1>旋盤で<br>鉛筆を削る</h1>
+        <button class="btn diff ${g.difficulty === 'hard' ? 'hard' : ''}" data-act="difficulty">難易度：${g.difficulty === 'hard' ? 'ハード（猫が来る）' : 'ふつう'}</button>
         <button class="btn primary" data-act="new">はじめから</button>
         ${hasSave ? '<button class="btn" data-act="cont">つづきから</button><button class="btn" data-act="select">面をえらぶ</button>' : ''}
         ${g.kiwamiUnlocked() ? '<button class="btn kiwami-btn" data-act="kiwami">鉛筆削り道 極み</button>' : ''}
@@ -218,6 +270,7 @@ export function createGame(root, canvas, deps) {
       html = `<div class="hud" data-hud>
         <div class="hud-top"><span>${label} ${esc(st.name)}</span><span>一致 <b data-match></b></span><span data-time></span></div>
         <div class="hud-hint">まず左下のボタンで旋盤を回そう。画面をなぞると刃が動き、指を上へ動かすと削れる。ゆっくり！</div>
+        <div class="cat" data-cat><canvas width="160" height="140"></canvas><div class="cat-say"></div></div>
         <button class="lathe-btn" data-act="lathe"><span class="lathe-dot"></span><span data-lathe-label>回す</span></button>
         <button class="btn primary done" data-act="finish">完成</button></div>`;
     } else if (name === 'broken') {
@@ -250,6 +303,7 @@ export function createGame(root, canvas, deps) {
     on('[data-act="cut"]', () => g.goto('cutting'));
     on('[data-act="finish"]', () => g.finish());
     on('[data-act="lathe"]', () => g.toggleLathe());
+    on('[data-act="difficulty"]', () => { g.setDifficulty(g.difficulty === 'hard' ? 'normal' : 'hard'); render(); });
     on('[data-act="retry"]', () => g.retry());
     on('[data-act="next"]', () => g.next());
     on('[data-act="share"]', () => g.onShare?.());
@@ -268,6 +322,7 @@ export function createGame(root, canvas, deps) {
   function loop() {
     const t = now(); const dt = Math.min(0.05, (t - last) / 1000); last = t;
     if (g.state.name === 'cutting') {
+      g.tickCat();
       cutLevel *= 0.9; audio.setCutIntensity(cutLevel);
       if (hud) hud.querySelector('[data-time]').textContent = `${elapsed().toFixed(1)}秒`;
     }

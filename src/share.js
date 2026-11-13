@@ -2,8 +2,8 @@ import { drawSilhouette } from './silhouette.js';
 
 export const GAME_NAME = '旋盤で鉛筆を削る';
 
-export function buildShareText({ stageName, rank, total, seconds }) {
-  return `【${GAME_NAME}】${stageName} ランク${rank}（${total}点・${seconds.toFixed(1)}秒）\n#旋盤で鉛筆を削る`;
+export function buildShareText({ stageName, rank, total, seconds, hard }) {
+  return `【${GAME_NAME}】${hard ? '【ハード】' : ''}${stageName} ランク${rank}（${total}点・${seconds.toFixed(1)}秒）\n#旋盤で鉛筆を削る`;
 }
 
 const RANK_COLOR = { S: '#ffd84d', A: '#7fe3ff', B: '#a8e07a', C: '#c9b9a6' };

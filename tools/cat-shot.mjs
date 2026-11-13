@@ -1,0 +1,12 @@
+import puppeteer from 'puppeteer-core';
+const [rand, waitMs, out] = process.argv.slice(2);
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader','--no-proxy-server'] });
+const p = await b.newPage(); await p.setViewport({ width: 390, height: 844 });
+const errors = []; p.on('pageerror', (e) => errors.push(e.message));
+await p.evaluateOnNewDocument((r) => { localStorage.setItem('senban-enpitsu:difficulty', 'hard'); Math.random = () => r; }, +rand);
+await p.goto('http://localhost:4173/', { waitUntil: 'load' });
+await p.click('[data-act="new"]'); await p.click('[data-act="tap"]'); await p.click('button[data-act="cut"]'); await p.click('[data-act="lathe"]');
+await new Promise((r) => setTimeout(r, +waitMs));
+await p.screenshot({ path: out });
+console.log(await p.$eval('[data-cat]', (e) => e.className), await p.$eval('[data-act="lathe"]', (e) => e.className), errors);
+await b.close();

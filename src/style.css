@@ -91,3 +91,15 @@ h2 { font-size: 28px; margin: 0; }
 #bgm-toggle { position: fixed; top: calc(52px + env(safe-area-inset-top, 0)); right: 10px; z-index: 5; width: 40px; height: 40px; border-radius: 50%;
   border: 2px solid #f4f1ea55; background: #2d333ccc; color: #f4f1ea; font-size: 20px; cursor: pointer; }
 #bgm-toggle.off { opacity: .55; text-decoration: line-through; }
+/* ハードの猫 */
+.cat { position: absolute; z-index: 3; left: 0; bottom: calc(96px + env(safe-area-inset-bottom, 0)); width: 130px; pointer-events: none; opacity: 0;
+  transform: translateX(-110%); transition: transform .35s cubic-bezier(.3,1.4,.5,1), opacity .2s; }
+.cat canvas { width: 130px; height: auto; display: block; }
+.cat.show { opacity: 1; }
+.cat.peek { transform: translateX(-45%) rotate(12deg); }
+.cat.hold { transform: translate(8px, 52px); }
+.cat.nya { transform: translate(8px, 44px); animation: nya .18s infinite; }
+@keyframes nya { 50% { transform: translate(14px, 58px) rotate(-4deg); } }
+.cat-say { position: absolute; left: 70%; top: -6px; white-space: nowrap; background: #fff; color: #222; font-weight: bold; font-size: 15px; padding: 5px 10px; border-radius: 12px; }
+.cat.peek .cat-say { left: 92%; top: 10px; }
+.btn.diff.hard { background: #3a1d1d; border-color: #f0a54a; color: #f0a54a; }

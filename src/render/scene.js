@@ -127,7 +127,7 @@ export function createScene(canvas) {
       }
     },
     flashBreak() { shake = 0.4; },
-    setSpin(on) { spinTarget = on ? 14 : 0; },
+    setSpin(on, turbo = false) { spinTarget = on ? (turbo ? 32 : 14) : 0; },
     setFocus(xFrom) { focusFrom = xFrom; api.resize(); },
     resize() {
       const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;

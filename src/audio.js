@@ -82,3 +82,27 @@ export function stopMotor() {
   g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 1);
   o.stop(t + 1.05); o2.stop(t + 1.05);
 }
+export function setMotorTurbo(on) {
+  const c = ctx; if (!c || !motor) return;
+  const t = c.currentTime, f = on ? 1.9 : 1;
+  motor.o.frequency.cancelScheduledValues(t); motor.o.frequency.setValueAtTime(motor.o.frequency.value, t); motor.o.frequency.linearRampToValueAtTime(58 * f, t + 0.4);
+  motor.o2.frequency.cancelScheduledValues(t); motor.o2.frequency.setValueAtTime(motor.o2.frequency.value, t); motor.o2.frequency.linearRampToValueAtTime(116 * f, t + 0.4);
+}
+// にゃー（声の高さを上下させた音に、口の形のフィルターをかける）
+export function playMeow(kind = 'short') {
+  const c = ensure(); if (!c) return;
+  const one = (t0, dur, f0, f1) => {
+    const o = c.createOscillator(), bp = c.createBiquadFilter(), bp2 = c.createBiquadFilter(), g = c.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t0); o.frequency.linearRampToValueAtTime(f1, t0 + dur * 0.35); o.frequency.linearRampToValueAtTime(f0 * 0.8, t0 + dur);
+    bp.type = 'bandpass'; bp.Q.value = 6; bp.frequency.setValueAtTime(700, t0); bp.frequency.linearRampToValueAtTime(1600, t0 + dur * 0.4); bp.frequency.linearRampToValueAtTime(900, t0 + dur);
+    bp2.type = 'bandpass'; bp2.Q.value = 8; bp2.frequency.value = 2800;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.35, t0 + 0.04); g.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(bp).connect(g); o.connect(bp2).connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  };
+  const t = c.currentTime;
+  if (kind === 'nya') for (let i = 0; i < 4; i++) one(t + i * 0.17, 0.15, 620, 900);
+  else if (kind === 'long') one(t, 0.8, 520, 760);
+  else one(t, 0.35, 600, 880);
+}
