@@ -12,7 +12,7 @@ const click = async (sel) => { await page.click(sel); await new Promise((r) => s
 await shot('01-title');
 await click('[data-act="new"]'); await shot('02-intro');
 await click('[data-act="tap"]'); await shot('03-story');
-await click('button[data-act="cut"]');
+await click('button[data-act="cut"]'); await click('[data-act="lathe"]');
 // 刃を動かして削る：右へ寄せてから少しずつ上へ
 const w = +W, h = +H;
 await page.mouse.move(w * 0.5, h * 0.7); await page.mouse.down();
@@ -30,7 +30,7 @@ await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath:
 await click('[data-act="share"]'); await new Promise((r) => setTimeout(r, 1500));
 console.log('share msg:', await page.$eval('[data-share-msg]', (e) => e.textContent));
 // 折れ：一気に深く
-await click('[data-act="next"]'); await click('button[data-act="cut"]');
+await click('[data-act="next"]'); await click('button[data-act="cut"]'); await click('[data-act="lathe"]');
 await page.mouse.move(w * 0.5, h * 0.9); await page.mouse.down(); await page.mouse.move(w * 0.5, h * 0.89); await page.mouse.move(w * 0.5, 0); await page.mouse.up();
 await shot('06-broken');
 const state = await page.evaluate(() => document.querySelector('.boom') ? 'broken' : 'not-broken');

@@ -62,3 +62,23 @@ export function playStamp() {
   const g = c.createGain(); g.gain.setValueAtTime(0.7, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.12);
   s.connect(f).connect(g).connect(c.destination); s.start();
 }
+let motor = null;
+export function startMotor() {
+  const c = ensure(); if (!c || motor) return;
+  const o = c.createOscillator(), o2 = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(20, c.currentTime); o.frequency.linearRampToValueAtTime(58, c.currentTime + 0.8);
+  o2.type = 'square'; o2.frequency.setValueAtTime(40, c.currentTime); o2.frequency.linearRampToValueAtTime(116, c.currentTime + 0.8);
+  f.type = 'lowpass'; f.frequency.value = 380;
+  g.gain.setValueAtTime(0, c.currentTime); g.gain.linearRampToValueAtTime(0.09, c.currentTime + 0.4);
+  o.connect(f); o2.connect(f); f.connect(g).connect(c.destination); o.start(); o2.start();
+  motor = { o, o2, g };
+}
+export function stopMotor() {
+  const c = ctx; if (!c || !motor) return;
+  const { o, o2, g } = motor; motor = null;
+  const t = c.currentTime;
+  o.frequency.cancelScheduledValues(t); o.frequency.setValueAtTime(o.frequency.value, t); o.frequency.linearRampToValueAtTime(15, t + 1);
+  o2.frequency.cancelScheduledValues(t); o2.frequency.setValueAtTime(o2.frequency.value, t); o2.frequency.linearRampToValueAtTime(30, t + 1);
+  g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 1);
+  o.stop(t + 1.05); o2.stop(t + 1.05);
+}

@@ -69,7 +69,7 @@ export function createScene(canvas) {
   const borderColor = new THREE.Color('#7fe3ff');
   const right = new THREE.Vector3(), up = new THREE.Vector3();
   let cssW = 1, cssH = 1;
-  let shake = 0;
+  let shake = 0, spinTarget = 0, spinSpeed = 0;
 
   function renderZoom() {
     const pencilTopPx = cssH / 2 - PENCIL_RADIUS * (cssH / (camera.top - camera.bottom));
@@ -127,6 +127,7 @@ export function createScene(canvas) {
       }
     },
     flashBreak() { shake = 0.4; },
+    setSpin(on) { spinTarget = on ? 14 : 0; },
     setFocus(xFrom) { focusFrom = xFrom; api.resize(); },
     resize() {
       const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
@@ -142,7 +143,8 @@ export function createScene(canvas) {
       api.setTool(toolRef);
     },
     render(dt) {
-      spin.rotation.x += dt * 12; jaws.rotation.x += dt * 12;
+      spinSpeed += (spinTarget - spinSpeed) * Math.min(1, dt * (spinTarget > spinSpeed ? 2.5 : 1.2));
+      spin.rotation.x += dt * spinSpeed; jaws.rotation.x += dt * spinSpeed;
       if (dirty && profileRef) { updateLatheGeometry(geom, profileRef); dirty = false; }
       for (let i = 0; i < MAXP; i++) {
         if (pLife[i] <= 0) { pPos[i * 3 + 1] = -99; continue; }

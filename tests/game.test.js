@@ -6,8 +6,8 @@ import { _resetForTest } from '../src/storage.js';
 
 function fakeDeps() {
   const scene = { view: { xMin: 0, xMax: 6, yMin: -1, yMax: 1 }, setProfile: vi.fn(), markDirty: vi.fn(), setTarget: vi.fn(),
-    setTool: vi.fn(), setZoom: vi.fn(), setFocus: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
-  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), playTick: vi.fn(), playPop: vi.fn(), playStamp: vi.fn(), vibrate: vi.fn() };
+    setTool: vi.fn(), setZoom: vi.fn(), setSpin: vi.fn(), setFocus: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
+  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), playTick: vi.fn(), playPop: vi.fn(), playStamp: vi.fn(), startMotor: vi.fn(), stopMotor: vi.fn(), vibrate: vi.fn() };
   let t = 0;
   return { scene, audio, deps: { createScene: () => scene, attachInput: vi.fn(() => () => {}), audio, now: () => t, raf: () => 0 }, tick: (s) => { t += s * 1000; } };
 }
@@ -31,6 +31,7 @@ test('C ランクでも次の面へ進める', () => {
 test('折れたら同じ面の cutting に戻り、輪郭が新品になる', () => {
   const { game, audio } = setup();
   game.goto('cutting', 2);
+  game.toggleLathe();
   game.handleStart(); game.handleMove({ x: 2, r: 0 }); game.handleMove({ x: 2, r: -3 });
   expect(game.state.name).toBe('broken');
   expect(audio.playBreak).toHaveBeenCalled();
@@ -41,6 +42,7 @@ test('折れたら同じ面の cutting に戻り、輪郭が新品になる', ()
 test('ゆっくり削れば折れずに細くなる', () => {
   const { game } = setup();
   game.goto('cutting', 0);
+  game.toggleLathe();
   game.handleStart(); game.handleMove({ x: 2, r: 0 });
   for (let k = 1; k <= 60; k++) game.handleMove({ x: 2, r: -0.02 * k });
   expect(game.state.name).toBe('cutting');
@@ -51,9 +53,9 @@ test('最終面の result の次は ending', () => {
   game.goto('cutting', 4); game.finish(); game.next();
   expect(game.state.name).toBe('ending');
 });
-test('完成のタイムは cutting に入ってからの秒数', () => {
+test('完成のタイムは、最初に旋盤を回してからの秒数', () => {
   const { game, tick } = setup();
-  game.goto('cutting', 0); tick(12.5); game.finish();
+  game.goto('cutting', 0); tick(30); game.toggleLathe(); tick(12.5); game.finish();
   expect(game.lastResult.seconds).toBeCloseTo(12.5);
 });
 test('記録が保存され、次の面が選べるようになる', () => {
@@ -161,4 +163,30 @@ test('極みの最後の形の次は、極みの一覧に戻る', () => {
   game.startKiwami(4); game.goto('cutting'); game.finish(); game.next();
   expect(game.state.name).toBe('kiwami');
   game.goto('title', 0); expect(game.mode).toBe('story');
+});
+test('旋盤が止まっている間は削れず、刃は表面で止まる', () => {
+  const { game } = setup();
+  game.goto('cutting', 0);
+  expect(game.spinning).toBe(false);
+  game.handleStart(); game.handleMove({ x: 2, r: 0 });
+  for (let k = 1; k <= 120; k++) game.handleMove({ x: 2, r: -0.02 * k });
+  expect(game.profile.radii.every((r) => Math.abs(r - PENCIL_RADIUS) < 1e-6)).toBe(true);
+  expect(game.tool.r).toBeGreaterThanOrEqual(PENCIL_RADIUS - 1e-6);
+  expect(game.state.name).toBe('cutting');
+});
+test('回転ボタンで回すと削れ、もう一度押すと止まる', () => {
+  const { game, scene, audio } = setup();
+  game.goto('cutting', 0);
+  game.toggleLathe(); expect(game.spinning).toBe(true);
+  expect(scene.setSpin).toHaveBeenLastCalledWith(true); expect(audio.startMotor).toHaveBeenCalled();
+  game.handleStart(); game.handleMove({ x: 2, r: 0 });
+  for (let k = 1; k <= 60; k++) game.handleMove({ x: 2, r: -0.02 * k });
+  expect(Math.min(...game.profile.radii)).toBeLessThan(PENCIL_RADIUS - 0.05);
+  game.toggleLathe(); expect(game.spinning).toBe(false); expect(audio.stopMotor).toHaveBeenCalled();
+  expect(document.querySelector('[data-act="lathe"]').textContent).toContain('回す');
+});
+test('面を終えたり折れたりすると旋盤は止まる', () => {
+  const { game, scene } = setup();
+  game.goto('cutting', 0); game.toggleLathe(); game.finish();
+  expect(game.spinning).toBe(false); expect(scene.setSpin).toHaveBeenLastCalledWith(false);
 });

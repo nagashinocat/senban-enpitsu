@@ -11,6 +11,13 @@ import { PENCIL_LENGTH, DEPTH_GAIN, TOOL_HALF_WIDTH, TOOL_REST_R } from './confi
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+function surfaceAt(profile, x, hw) {
+  const { radii, dx } = profile;
+  const i0 = Math.max(0, Math.ceil((x - hw) / dx)), i1 = Math.min(radii.length - 1, Math.floor((x + hw) / dx));
+  let m = 0; for (let i = i0; i <= i1; i++) m = Math.max(m, radii[i]);
+  return m;
+}
+
 export function createGame(root, canvas, deps) {
   const { createScene, attachInput, audio, share } = deps;
   const now = deps.now || (() => performance.now());
@@ -25,9 +32,21 @@ export function createGame(root, canvas, deps) {
     lastResult: null,
   };
   g.mode = 'story';
+  g.spinning = false;
+  const elapsed = () => (startedAt == null ? 0 : (now() - startedAt) / 1000);
+  function setSpinning(on) {
+    if (g.spinning === on) return;
+    g.spinning = on;
+    scene.setSpin(on);
+    if (on) { audio.unlock(); audio.startMotor(); if (startedAt == null && g.state.name === 'cutting') startedAt = now(); }
+    else audio.stopMotor();
+    const b = root.querySelector('[data-act="lathe"]');
+    if (b) { b.classList.toggle('on', on); b.querySelector('[data-lathe-label]').textContent = on ? '止める' : '回す'; }
+    root.querySelector('.hud-hint')?.classList.toggle('ready', on);
+  }
   const L = () => (g.mode === 'kiwami' ? KIWAMI : STAGES);
   const tol = () => L()[g.state.stage]?.tolerance ?? MATCH_TOLERANCE;
-  let ref = null, startedAt = 0, liveMatch = 0, cutLevel = 0, tipFrom = 0;
+  let ref = null, startedAt = null, liveMatch = 0, cutLevel = 0, tipFrom = 0;
 
   function freshPencil() {
     g.profile = createProfile();
@@ -38,6 +57,7 @@ export function createGame(root, canvas, deps) {
   // --- 状態の切り替え ---
   g.goto = (name, stage = g.state.stage) => {
     audio.stopCutSound();
+    setSpinning(false);
     if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') g.mode = 'story';
     if (name === 'kiwami') g.mode = 'kiwami';
     g.state = { name, stage };
@@ -49,7 +69,7 @@ export function createGame(root, canvas, deps) {
       scene.setFocus(tipX());
       g.target = buildTarget(L()[stage]);
       scene.setTarget(g.target);
-      startedAt = now(); liveMatch = matchRate(g.profile, g.target, tipFrom, tol()); ref = null;
+      startedAt = null; liveMatch = matchRate(g.profile, g.target, tipFrom, tol()); ref = null;
       g.tool = { x: tipX() + (PENCIL_LENGTH - tipX()) / 2, r: TOOL_REST_R }; scene.setTool(g.tool);
     } else if (name === 'story') {
       freshPencil(); scene.setFocus(tipX()); scene.setTarget(buildTarget(L()[stage]));
@@ -66,7 +86,7 @@ export function createGame(root, canvas, deps) {
   };
   g.finish = () => {
     if (g.state.name !== 'cutting') return;
-    const seconds = (now() - startedAt) / 1000;
+    const seconds = elapsed();
     const stage = L()[g.state.stage];
     const s = scoreResult(g.profile, g.target, seconds, stage.parSeconds, tipFrom, stage.tolerance ?? MATCH_TOLERANCE);
     g.lastResult = { ...s, seconds, stageId: stage.id, stageName: stage.name };
@@ -107,6 +127,7 @@ export function createGame(root, canvas, deps) {
       if (msg) msg.textContent = `共有できませんでした。投稿文はこちら：\n${text}`;
     } finally { sharing = false; }
   };
+  g.toggleLathe = () => { if (g.state.name === 'cutting') setSpinning(!g.spinning); };
   g.kiwamiUnlocked = () => clearedStageIds().has(STAGES[STAGES.length - 1].id);
   g.startKiwami = (i = 0) => { g.mode = 'kiwami'; g.goto('story', i); };
   g.unlockedStages = () => {
@@ -131,6 +152,12 @@ export function createGame(root, canvas, deps) {
     const nx = Math.max(0, Math.min(PENCIL_LENGTH, g.tool.x + (p.x - ref.x)));
     const nr = Math.max(0, Math.min(TOOL_REST_R * 2, g.tool.r + (p.r - ref.r) * DEPTH_GAIN));
     ref = p;
+    if (!g.spinning) {
+      // 止まっている間は削れない：刃は鉛筆の表面で止まる
+      g.tool = { x: nx, r: Math.max(nr, surfaceAt(g.profile, nx, TOOL_HALF_WIDTH)) };
+      scene.setTool(g.tool);
+      return;
+    }
     g.tool = { x: nx, r: nr };
     scene.setTool(g.tool);
     const cut = cutSweep(g.profile, from, g.tool, TOOL_HALF_WIDTH);
@@ -153,7 +180,7 @@ export function createGame(root, canvas, deps) {
   function updateHud() {
     if (!hud) return;
     hud.querySelector('[data-match]').textContent = `${liveMatch.toFixed(1)}%`;
-    hud.querySelector('[data-time]').textContent = `${((now() - startedAt) / 1000).toFixed(1)}秒`;
+    hud.querySelector('[data-time]').textContent = `${elapsed().toFixed(1)}秒`;
   }
   function on(sel, fn) { root.querySelectorAll(sel).forEach((el) => el.addEventListener('click', (e) => { e.stopPropagation(); audio.unlock(); fn(e); })); }
 
@@ -189,7 +216,8 @@ export function createGame(root, canvas, deps) {
     } else if (name === 'cutting') {
       html = `<div class="hud" data-hud>
         <div class="hud-top"><span>${label} ${esc(st.name)}</span><span>一致 <b data-match></b></span><span data-time></span></div>
-        <div class="hud-hint">画面のどこでもなぞると刃が動く。指を上へ動かすと削れる。ゆっくり！</div>
+        <div class="hud-hint">まず左下のボタンで旋盤を回そう。画面をなぞると刃が動き、指を上へ動かすと削れる。ゆっくり！</div>
+        <button class="lathe-btn" data-act="lathe"><span class="lathe-dot"></span><span data-lathe-label>回す</span></button>
         <button class="btn primary done" data-act="finish">完成</button></div>`;
     } else if (name === 'broken') {
       html = `<div class="panel center"><h2 class="boom">ポキッ！</h2><p class="line">折れた…</p>
@@ -220,6 +248,7 @@ export function createGame(root, canvas, deps) {
     on('[data-act="tap"]', () => g.goto('story', 0));
     on('[data-act="cut"]', () => g.goto('cutting'));
     on('[data-act="finish"]', () => g.finish());
+    on('[data-act="lathe"]', () => g.toggleLathe());
     on('[data-act="retry"]', () => g.retry());
     on('[data-act="next"]', () => g.next());
     on('[data-act="share"]', () => g.onShare?.());
@@ -239,7 +268,7 @@ export function createGame(root, canvas, deps) {
     const t = now(); const dt = Math.min(0.05, (t - last) / 1000); last = t;
     if (g.state.name === 'cutting') {
       cutLevel *= 0.9; audio.setCutIntensity(cutLevel);
-      if (hud) hud.querySelector('[data-time]').textContent = `${((t - startedAt) / 1000).toFixed(1)}秒`;
+      if (hud) hud.querySelector('[data-time]').textContent = `${elapsed().toFixed(1)}秒`;
     }
     scene.render(dt);
     raf(loop);

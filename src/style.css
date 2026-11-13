@@ -81,3 +81,10 @@ h2 { font-size: 28px; margin: 0; }
 }
 .kiwami-btn { background: #1c1410; color: #f2d58a; border-color: #b8913a; font-weight: bold; letter-spacing: .1em; font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; }
 .invite { font-size: 16px; opacity: .9; }
+.lathe-btn { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0)); pointer-events: auto; width: 92px; height: 92px; border-radius: 50%;
+  border: 5px solid #3a3f47; background: radial-gradient(circle at 40% 35%, #ff6a5a, #b81f14 70%); color: #fff; font: inherit; font-weight: bold; font-size: 17px;
+  box-shadow: 0 6px 0 #5a0e08, 0 0 0 4px #f2b632; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; }
+.lathe-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #5a0e08, 0 0 0 4px #f2b632; }
+.lathe-btn.on { background: radial-gradient(circle at 40% 35%, #7cf09a, #1e9b45 70%); box-shadow: 0 6px 0 #0d4a20, 0 0 0 4px #f2b632, 0 0 22px #5cff8a88; }
+.lathe-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff6; }
+.lathe-btn.on .lathe-dot { background: #fff; animation: blink 0.5s infinite; }
