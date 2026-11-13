@@ -134,3 +134,31 @@ test('結果の画面では演出が進み、タップで飛ばせる', () => {
   expect(document.querySelector('.result-actions').classList.contains('show')).toBe(true);
   expect(document.querySelector('[data-comment]').textContent.length).toBeGreaterThan(0);
 });
+test('極みはストーリーをクリアするまで遊べない', () => {
+  const { game } = setup();
+  expect(game.kiwamiUnlocked()).toBe(false);
+  game.start(); expect(document.querySelector('[data-act="kiwami"]')).toBeNull();
+  game.goto('cutting', 4); game.finish(); game.next();
+  expect(game.state.name).toBe('ending');
+  expect(game.kiwamiUnlocked()).toBe(true);
+  expect(document.querySelector('[data-act="kiwami"]')).not.toBeNull();
+  game.goto('title', 0); expect(document.querySelector('[data-act="kiwami"]')).not.toBeNull();
+});
+test('極みの面を遊んでも、ストーリーの進み具合は変わらない', () => {
+  const { game } = setup();
+  game.goto('cutting', 4); game.finish();
+  const before = game.unlockedStages();
+  game.startKiwami(3);
+  expect(game.mode).toBe('kiwami'); expect(game.state).toEqual({ name: 'story', stage: 3 });
+  expect(document.querySelector('h2').textContent).toBe('数珠');
+  game.goto('cutting'); game.finish();
+  expect(game.lastResult.stageName).toBe('数珠');
+  expect(game.unlockedStages()).toEqual(before);
+});
+test('極みの最後の形の次は、極みの一覧に戻る', () => {
+  const { game } = setup();
+  game.goto('cutting', 4); game.finish();
+  game.startKiwami(4); game.goto('cutting'); game.finish(); game.next();
+  expect(game.state.name).toBe('kiwami');
+  game.goto('title', 0); expect(game.mode).toBe('story');
+});

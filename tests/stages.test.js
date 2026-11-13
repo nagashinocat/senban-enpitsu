@@ -31,3 +31,31 @@ test('どの面も、先端の部分より手前は元の太さのまま', () =>
     expect(Math.min(...t.slice(k))).toBeLessThan(PENCIL_RADIUS * 0.9);
   }
 });
+import { KIWAMI } from '../src/stages.js';
+import { MATCH_TOLERANCE } from '../src/config.js';
+const minima = (t) => { let n = 0; for (let i = 2; i < t.length - 2; i++) if (t[i] < t[i - 1] - 1e-6 && t[i] <= t[i + 1]) n++; return n; };
+
+test('極みは5つ、ストーリーとは別の名前', () => {
+  expect(KIWAMI).toHaveLength(5);
+  const ids = new Set(STAGES.map((s) => s.id));
+  for (const k of KIWAMI) expect(ids.has(k.id)).toBe(false);
+  expect(KIWAMI.map((k) => k.name)).toEqual(['独楽', '徳利', 'ボウリングのピン', '数珠', '五重塔']);
+});
+test('極みはストーリーの最終面より折れやすく、採点も厳しい', () => {
+  for (const k of KIWAMI) {
+    expect(k.breakFactor).toBeLessThan(STAGES[4].breakFactor);
+    expect(k.tolerance).toBeLessThan(MATCH_TOLERANCE);
+    expect(k.story).toHaveLength(1);
+  }
+});
+test('極みの形は芯より太く元より細い、先端の手前は元のまま', () => {
+  for (const k of KIWAMI) {
+    const t = buildTarget(k); const s0 = tipStartIndex(k);
+    for (let i = 0; i < s0; i++) expect(t[i]).toBeCloseTo(PENCIL_RADIUS);
+    for (const r of t) { expect(r).toBeGreaterThanOrEqual(CORE_RADIUS * 0.5 - 1e-6); expect(r).toBeLessThanOrEqual(PENCIL_RADIUS + 1e-6); }
+  }
+});
+test('数珠と五重塔はくびれが4つ以上', () => {
+  expect(minima(buildTarget(KIWAMI[3]))).toBeGreaterThanOrEqual(4);
+  expect(minima(buildTarget(KIWAMI[4]))).toBeGreaterThanOrEqual(4);
+});

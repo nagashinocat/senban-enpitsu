@@ -1,7 +1,8 @@
 import { createProfile, cutSweep } from './profile.js';
 import { isBroken } from './breakage.js';
 import { matchRate, scoreResult } from './scoring.js';
-import { STAGES, INTRO, ENDING, buildTarget, tipStartIndex } from './stages.js';
+import { STAGES, KIWAMI, KIWAMI_INVITE, INTRO, ENDING, buildTarget, tipStartIndex } from './stages.js';
+import { MATCH_TOLERANCE } from './config.js';
 import { screenToTool } from './input.js';
 import { drawSilhouette } from './silhouette.js';
 import { resultHtml, playResult } from './result-anim.js';
@@ -23,6 +24,9 @@ export function createGame(root, canvas, deps) {
     tool: { x: PENCIL_LENGTH / 2, r: TOOL_REST_R },
     lastResult: null,
   };
+  g.mode = 'story';
+  const L = () => (g.mode === 'kiwami' ? KIWAMI : STAGES);
+  const tol = () => L()[g.state.stage]?.tolerance ?? MATCH_TOLERANCE;
   let ref = null, startedAt = 0, liveMatch = 0, cutLevel = 0, tipFrom = 0;
 
   function freshPencil() {
@@ -34,20 +38,22 @@ export function createGame(root, canvas, deps) {
   // --- 状態の切り替え ---
   g.goto = (name, stage = g.state.stage) => {
     audio.stopCutSound();
+    if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') g.mode = 'story';
+    if (name === 'kiwami') g.mode = 'kiwami';
     g.state = { name, stage };
     scene.setZoom(name === 'cutting');
-    const tipX = () => tipStartIndex(STAGES[stage]) * g.profile.dx;
+    const tipX = () => tipStartIndex(L()[stage]) * g.profile.dx;
     if (name === 'cutting') {
       freshPencil();
-      tipFrom = tipStartIndex(STAGES[stage]);
+      tipFrom = tipStartIndex(L()[stage]);
       scene.setFocus(tipX());
-      g.target = buildTarget(STAGES[stage]);
+      g.target = buildTarget(L()[stage]);
       scene.setTarget(g.target);
-      startedAt = now(); liveMatch = matchRate(g.profile, g.target, tipFrom); ref = null;
+      startedAt = now(); liveMatch = matchRate(g.profile, g.target, tipFrom, tol()); ref = null;
       g.tool = { x: tipX() + (PENCIL_LENGTH - tipX()) / 2, r: TOOL_REST_R }; scene.setTool(g.tool);
     } else if (name === 'story') {
-      freshPencil(); scene.setFocus(tipX()); scene.setTarget(buildTarget(STAGES[stage]));
-    } else if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') {
+      freshPencil(); scene.setFocus(tipX()); scene.setTarget(buildTarget(L()[stage]));
+    } else if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending' || name === 'kiwami') {
       freshPencil(); scene.setFocus(0); scene.setTarget(null);
     }
     render();
@@ -61,8 +67,8 @@ export function createGame(root, canvas, deps) {
   g.finish = () => {
     if (g.state.name !== 'cutting') return;
     const seconds = (now() - startedAt) / 1000;
-    const stage = STAGES[g.state.stage];
-    const s = scoreResult(g.profile, g.target, seconds, stage.parSeconds, tipFrom);
+    const stage = L()[g.state.stage];
+    const s = scoreResult(g.profile, g.target, seconds, stage.parSeconds, tipFrom, stage.tolerance ?? MATCH_TOLERANCE);
     g.lastResult = { ...s, seconds, stageId: stage.id, stageName: stage.name };
     saveResult(stage.id, { total: s.total, rank: s.rank, seconds });
     audio.playDing(); audio.vibrate(30);
@@ -70,6 +76,7 @@ export function createGame(root, canvas, deps) {
   };
   g.next = () => {
     const i = g.state.stage;
+    if (g.mode === 'kiwami') { if (i >= KIWAMI.length - 1) g.goto('kiwami', 0); else g.goto('story', i + 1); return; }
     if (i >= STAGES.length - 1) g.goto('ending', i); else g.goto('story', i + 1);
   };
   g.retry = () => g.goto('cutting', g.state.stage);
@@ -100,6 +107,8 @@ export function createGame(root, canvas, deps) {
       if (msg) msg.textContent = `共有できませんでした。投稿文はこちら：\n${text}`;
     } finally { sharing = false; }
   };
+  g.kiwamiUnlocked = () => clearedStageIds().has(STAGES[STAGES.length - 1].id);
+  g.startKiwami = (i = 0) => { g.mode = 'kiwami'; g.goto('story', i); };
   g.unlockedStages = () => {
     const cleared = clearedStageIds();
     const out = [];
@@ -129,12 +138,12 @@ export function createGame(root, canvas, deps) {
       scene.markDirty(); scene.emitChips(g.tool.x, cut.removed);
       cutLevel = Math.min(1, cutLevel + cut.removed * 3);
       audio.setCutIntensity(cutLevel);
-      if (isBroken(g.profile, cut, STAGES[g.state.stage].breakFactor)) {
+      if (isBroken(g.profile, cut, L()[g.state.stage].breakFactor)) {
         scene.flashBreak(); audio.stopCutSound(); audio.playBreak(); audio.vibrate([80, 40, 120]);
         g.goto('broken');
         return;
       }
-      liveMatch = matchRate(g.profile, g.target, tipFrom);
+      liveMatch = matchRate(g.profile, g.target, tipFrom, tol());
       updateHud();
     }
   };
@@ -150,7 +159,8 @@ export function createGame(root, canvas, deps) {
 
   function render() {
     const { name, stage } = g.state;
-    const st = STAGES[stage];
+    const st = L()[stage] || STAGES[0];
+    const label = g.mode === 'kiwami' ? `鉛筆削り道 極み 其の${'一二三四五'[stage]}` : `第${stage + 1}面`;
     hud = null;
     let html = '';
     if (name === 'title') {
@@ -160,6 +170,7 @@ export function createGame(root, canvas, deps) {
         <h1>旋盤で<br>鉛筆を削る</h1>
         <button class="btn primary" data-act="new">はじめから</button>
         ${hasSave ? '<button class="btn" data-act="cont">つづきから</button><button class="btn" data-act="select">面をえらぶ</button>' : ''}
+        ${g.kiwamiUnlocked() ? '<button class="btn kiwami-btn" data-act="kiwami">鉛筆削り道 極み</button>' : ''}
       </div>`;
     } else if (name === 'intro') {
       html = `<div class="panel center tap" data-act="tap">${INTRO.map((l) => `<p class="line">${esc(l)}</p>`).join('')}<div class="hint">タップで進む</div></div>`;
@@ -171,23 +182,31 @@ export function createGame(root, canvas, deps) {
       }).join('')}</div><button class="btn ghost" data-act="title">もどる</button></div>`;
     } else if (name === 'story') {
       html = `<div class="panel center tap" data-act="cut">
-        <div class="kicker">第${stage + 1}面</div><h2>${esc(st.name)}</h2>
+        <div class="kicker">${label}</div><h2>${esc(st.name)}</h2>
         ${st.story.map((l) => `<p class="line">${esc(l)}</p>`).join('')}
         <div class="pic"><canvas width="300" height="120" data-sil></canvas><div class="bubble">${esc(st.bubble)}</div></div>
         <button class="btn primary" data-act="cut">削る</button></div>`;
     } else if (name === 'cutting') {
       html = `<div class="hud" data-hud>
-        <div class="hud-top"><span>第${stage + 1}面 ${esc(st.name)}</span><span>一致 <b data-match></b></span><span data-time></span></div>
+        <div class="hud-top"><span>${label} ${esc(st.name)}</span><span>一致 <b data-match></b></span><span data-time></span></div>
         <div class="hud-hint">画面のどこでもなぞると刃が動く。指を上へ動かすと削れる。ゆっくり！</div>
         <button class="btn primary done" data-act="finish">完成</button></div>`;
     } else if (name === 'broken') {
       html = `<div class="panel center"><h2 class="boom">ポキッ！</h2><p class="line">折れた…</p>
         <button class="btn primary" data-act="retry">新しい鉛筆で</button></div>`;
     } else if (name === 'result') {
-      html = resultHtml(g.lastResult, { stageIndex: stage, last: stage >= STAGES.length - 1 });
+      html = resultHtml(g.lastResult, { stageIndex: stage, kicker: `${label} ${st.name}`, last: g.mode === 'story' && stage >= STAGES.length - 1, nextLabel: g.mode === 'kiwami' && stage >= KIWAMI.length - 1 ? '極みの一覧へ' : undefined });
     } else if (name === 'ending') {
       html = `<div class="panel center">${ENDING.map((l) => `<p class="line">${esc(l)}</p>`).join('')}
-        <h2>おしまい</h2><button class="btn primary" data-act="title">タイトルへ</button></div>`;
+        <h2>おしまい</h2>
+        ${g.kiwamiUnlocked() ? `<p class="line invite">${esc(KIWAMI_INVITE)}</p><button class="btn kiwami-btn" data-act="kiwami">鉛筆削り道 極みへ</button>` : ''}
+        <button class="btn primary" data-act="title">タイトルへ</button></div>`;
+    } else if (name === 'kiwami') {
+      const rec = loadRecords();
+      html = `<div class="panel center"><div class="kicker">ストーリーの先の試練</div><h2>鉛筆削り道 極み</h2><div class="list">${KIWAMI.map((s, i) => {
+        const r = rec[s.id];
+        return `<button class="btn row" data-kiwami="${i}"><span>其の${'一二三四五'[i]} ${esc(s.name)}</span><b>${r ? r.bestRank : ''}</b></button>`;
+      }).join('')}</div><button class="btn ghost" data-act="title">もどる</button></div>`;
     }
     root.innerHTML = html;
     root.querySelectorAll('[data-sil]').forEach((c) => { const ctx = c.getContext?.('2d'); if (ctx) drawSilhouette(ctx, buildTarget(st).slice(Math.max(0, tipStartIndex(st) - 12)), { x: 6, y: 0, w: c.width - 12, h: c.height }); });
@@ -195,6 +214,8 @@ export function createGame(root, canvas, deps) {
     on('[data-act="new"]', () => g.newGame());
     on('[data-act="cont"]', () => g.continueGame());
     on('[data-act="select"]', () => g.goto('select'));
+    on('[data-act="kiwami"]', () => g.goto('kiwami', 0));
+    root.querySelectorAll('[data-kiwami]').forEach((b) => b.addEventListener('click', () => g.startKiwami(+b.dataset.kiwami)));
     on('[data-act="title"]', () => g.goto('title', 0));
     on('[data-act="tap"]', () => g.goto('story', 0));
     on('[data-act="cut"]', () => g.goto('cutting'));

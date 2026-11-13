@@ -79,3 +79,5 @@ h2 { font-size: 28px; margin: 0; }
   .result-actions .btn { min-width: 150px; padding: 9px 16px; font-size: 16px; }
   .result-actions .row2 .btn { min-width: 110px; }
 }
+.kiwami-btn { background: #1c1410; color: #f2d58a; border-color: #b8913a; font-weight: bold; letter-spacing: .1em; font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; }
+.invite { font-size: 16px; opacity: .9; }

@@ -30,9 +30,9 @@ const ROWS = [
   { key: 'total', label: '合計', fmt: (v) => `${Math.round(v)}点`, max: 1200 },
 ];
 
-export function resultHtml(r, { stageIndex, last }) {
+export function resultHtml(r, { stageIndex, last, kicker, nextLabel }) {
   return `<div class="panel center result" data-result>
-    <div class="kicker">第${stageIndex + 1}面 ${esc(r.stageName)}</div>
+    <div class="kicker">${esc(kicker || `第${stageIndex + 1}面 ${r.stageName}`)}</div>
     <div class="score-board">
       ${ROWS.map((row) => `<div class="score-row${row.key === 'total' ? ' total' : ''}" data-row="${row.key}"><span>${row.label}</span><b data-val="${row.key}"></b></div>`).join('')}
       <div class="hanko rank-${r.rank}"><span class="hanko-rank">${esc(r.rank)}</span><span class="hanko-sub">判定</span></div>
@@ -42,7 +42,7 @@ export function resultHtml(r, { stageIndex, last }) {
       <div class="master-say"><div class="master-name">伝説の鉛筆削り名人</div><div class="master-bubble" data-comment></div></div></div>
     <div class="result-actions">
       <button class="btn" data-act="share">結果を共有</button><div class="share-msg" data-share-msg></div><div class="share-img" data-share-img></div>
-      <div class="row2"><button class="btn ghost" data-act="retry">もう一度</button><button class="btn primary" data-act="next">${last ? 'エンディングへ' : '次へ'}</button></div>
+      <div class="row2"><button class="btn ghost" data-act="retry">もう一度</button><button class="btn primary" data-act="next">${esc(nextLabel || (last ? 'エンディングへ' : '次へ'))}</button></div>
     </div>
     </div>
     <div class="skip-hint">タップで飛ばす</div>

@@ -1,0 +1,15 @@
+<!doctype html><html><body style="margin:0;background:#20242b">
+<canvas id="c" width="900" height="760"></canvas>
+<script type="module">
+import { KIWAMI, buildTarget, tipStartIndex } from '../src/stages.js';
+import { drawSilhouette } from '../src/silhouette.js';
+const ctx = document.getElementById('c').getContext('2d');
+ctx.font = 'bold 24px sans-serif';
+KIWAMI.forEach((k, i) => {
+  const t = buildTarget(k).slice(Math.max(0, tipStartIndex(k) - 8));
+  const y = 10 + i * 150;
+  ctx.fillStyle = '#f4f1ea'; ctx.fillText(k.name, 16, y + 75);
+  drawSilhouette(ctx, t, { x: 260, y, w: 620, h: 140 }, { fill: '#e8c99a' });
+});
+document.title = 'ready';
+</script></body></html>

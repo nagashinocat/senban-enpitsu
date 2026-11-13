@@ -56,3 +56,7 @@ test('先端の外を削りすぎたら減点される', () => {
   for (let i = 0; i < 20; i++) p.radii[i] = 0.25;
   expect(matchRate(p, t, k)).toBeLessThan(100);
 });
+test('許容幅を狭くすると、同じずれでも一致率が下がる', () => {
+  const t = new Float32Array(SAMPLES).fill(0.3); const p = createProfile(); p.radii.fill(0.33);
+  expect(scoreResult(p, t, 10, 30, 0, 0.1).match).toBeLessThan(scoreResult(p, t, 10, 30, 0).match);
+});

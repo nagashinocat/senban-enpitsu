@@ -68,6 +68,25 @@ export const STAGES = [
   },
 ];
 
+// 鉛筆削り道 極み：ストーリーをクリアすると遊べる高難易度の形。話のかわりに名人の一言
+const KIWAMI_TOL = 0.12;
+const beads = (n) => { const pts = [[0, 0.3]]; for (let k = 0; k < n; k++) { const a = k / n, b = (k + 1) / n; pts.push([a + (b - a) * 0.15, 0.32], [a + (b - a) * 0.5, 0.85], [a + (b - a) * 0.85, 0.32]); } pts.push([1, 0.3]); return pts; };
+const roofs = (n) => { const pts = [[0, 0.5]]; const span = 0.88 / n; for (let k = 0; k < n; k++) { const a = k * span; pts.push([a + span * 0.1, 0.42], [a + span * 0.2, 1 - k * 0.08], [a + span * 0.55, 0.62 - k * 0.04], [a + span, 0.42]); } pts.push([0.92, 0.3], [1, 0.14]); return pts; };
+export const KIWAMI = [
+  { id: 'k-koma', name: '独楽', story: ['名人：「独楽は芯が命じゃ。ぶれるでないぞ。」'], bubble: '芯が命',
+    tip: 0.4, shape: curve([[0, 0.3], [0.22, 0.3], [0.26, 1], [0.44, 1], [0.5, 0.85], [0.94, 0.16], [1, 0.13]]), parSeconds: 50, breakFactor: 0.4, tolerance: KIWAMI_TOL },
+  { id: 'k-tokkuri', name: '徳利', story: ['名人：「首は細く、心は太く。」'], bubble: '首は細く',
+    tip: 0.4, shape: curve([[0, 0.85], [0.1, 1], [0.35, 0.95], [0.5, 0.6], [0.6, 0.3], [0.86, 0.28], [0.93, 0.45], [1, 0.4]]), parSeconds: 50, breakFactor: 0.4, tolerance: KIWAMI_TOL },
+  { id: 'k-pin', name: 'ボウリングのピン', story: ['名人：「曲線に逆らうな。木目に従え。」'], bubble: '木目に従え',
+    tip: 0.4, shape: curve([[0, 0.6], [0.2, 0.95], [0.4, 0.8], [0.6, 0.35], [0.72, 0.38], [0.86, 0.62], [0.95, 0.55], [1, 0.3]]), parSeconds: 55, breakFactor: 0.35, tolerance: KIWAMI_TOL },
+  { id: 'k-juzu', name: '数珠', story: ['名人：「ひと玉ひと玉、祈るように削れ。」'], bubble: '祈るように',
+    tip: 0.4, shape: curve(beads(5)), parSeconds: 60, breakFactor: 0.3, tolerance: KIWAMI_TOL },
+  { id: 'k-tou', name: '五重塔', story: ['名人：「五つの屋根、五つの試練じゃ。」'], bubble: '五つの試練',
+    tip: 0.4, shape: curve(roofs(5)), parSeconds: 60, breakFactor: 0.3, tolerance: KIWAMI_TOL },
+];
+
+export const KIWAMI_INVITE = '名人：「…なかなかやるのう。試練を受けてみるか？」';
+
 export const ENDING = [
   '試験官は、自分そっくりの鉛筆を見つめて言った。',
   '「…合格」　なにに？',
