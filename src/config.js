@@ -17,3 +17,9 @@ export const RANKS = [['S', 1000], ['A', 850], ['B', 700], ['C', 0]];
 export const DEPTH_GAIN = 0.35;
 export const TOOL_HALF_WIDTH = 0.04;
 export const TOOL_REST_R = 0.6; // 刃の待機位置（鉛筆の外）
+
+// 旋盤の速さ：ボタンを長押しすると上がる
+export const SPEED_MAX = 2.5;
+export const SPEED_RAMP = 0.8;   // 1秒あたりの上がり方
+export const LONG_PRESS = 0.3;   // これより長く押すと長押し（秒）
+export const THIN_RATIO = 0.5;   // これより細い所は、速いほど折れやすい

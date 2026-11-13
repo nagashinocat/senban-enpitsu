@@ -1,6 +1,6 @@
 // ハードモードの猫。旋盤のボタンに、たまにいたずらをする
-//  idle → warn（顔をのぞかせる）→ hold（長押し：高速回転）または nyanya（連打）→ idle
-export const CAT = { MIN_GAP: 8, MAX_GAP: 15, WARN: 1.0, HOLD: 3.0, NYA: 2.0, TAP_EVERY: 0.22 };
+//  idle → warn（横からそーっと近づく）→ hold（長押し：高速回転）または nyanya（連打）→ idle
+export const CAT = { MIN_GAP: 8, MAX_GAP: 15, WARN: 2.5, HOLD: 3.0, NYA: 2.0, TAP_EVERY: 0.22 };
 
 export function initCat(t, rng = Math.random) {
   return { phase: 'idle', until: t + CAT.MIN_GAP + rng() * (CAT.MAX_GAP - CAT.MIN_GAP) };

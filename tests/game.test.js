@@ -3,11 +3,13 @@ import { test, expect, vi, beforeEach } from 'vitest';
 import { createGame } from '../src/game.js';
 import { PENCIL_RADIUS } from '../src/config.js';
 import { _resetForTest } from '../src/storage.js';
+import { CAT } from '../src/cat.js';
+import { SPEED_MAX, LONG_PRESS } from '../src/config.js';
 
 function fakeDeps() {
   const scene = { view: { xMin: 0, xMax: 6, yMin: -1, yMax: 1 }, setProfile: vi.fn(), markDirty: vi.fn(), setTarget: vi.fn(),
     setTool: vi.fn(), setZoom: vi.fn(), setSpin: vi.fn(), setFocus: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
-  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), playTick: vi.fn(), playPop: vi.fn(), playStamp: vi.fn(), startMotor: vi.fn(), stopMotor: vi.fn(), setMotorTurbo: vi.fn(), playMeow: vi.fn(), vibrate: vi.fn() };
+  const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), playTick: vi.fn(), playPop: vi.fn(), playStamp: vi.fn(), startMotor: vi.fn(), stopMotor: vi.fn(), setMotorSpeed: vi.fn(), playMeow: vi.fn(), vibrate: vi.fn() };
   let t = 0;
   return { scene, audio, deps: { createScene: () => scene, attachInput: vi.fn(() => () => {}), audio, now: () => t, raf: () => 0 }, tick: (s) => { t += s * 1000; } };
 }
@@ -178,7 +180,7 @@ test('回転ボタンで回すと削れ、もう一度押すと止まる', () =>
   const { game, scene, audio } = setup();
   game.goto('cutting', 0);
   game.toggleLathe(); expect(game.spinning).toBe(true);
-  expect(scene.setSpin).toHaveBeenLastCalledWith(true); expect(audio.startMotor).toHaveBeenCalled();
+  expect(scene.setSpin).toHaveBeenLastCalledWith(true, 1); expect(audio.startMotor).toHaveBeenCalled();
   game.handleStart(); game.handleMove({ x: 2, r: 0 });
   for (let k = 1; k <= 60; k++) game.handleMove({ x: 2, r: -0.02 * k });
   expect(Math.min(...game.profile.radii)).toBeLessThan(PENCIL_RADIUS - 0.05);
@@ -220,29 +222,31 @@ test('ふつうでは猫は来ない', () => {
   for (let k = 0; k < 60; k++) { tick(1); game.tickCat(); }
   expect(document.querySelector('[data-cat]').className).not.toContain('show');
 });
-test('ハード：猫が長押しすると、止められない高速回転になり、折れやすくなる', () => {
+test('ハード：猫が長押しすると、止められない最高速になる', () => {
   const { game, tick, scene, audio } = hardSetup([0, 0.2, 0.5]);
   game.setDifficulty('hard');
   game.goto('cutting', 0); game.toggleLathe(); game.toggleLathe(); // 回して止めておく
-  const base = game.breakFactorNow();
   tick(8); game.tickCat();
-  expect(document.querySelector('[data-cat]').className).toContain('peek');
-  tick(1); game.tickCat();
-  expect(game.spinning).toBe(true); expect(scene.setSpin).toHaveBeenLastCalledWith(true, true);
-  expect(game.breakFactorNow()).toBeCloseTo(base / 2);
+  expect(document.querySelector('[data-cat]').className).toContain('sneak');
+  expect(document.querySelector('.cat-say').textContent).toContain('そろ');
+  expect(document.querySelector('[data-cat] img')).not.toBeNull();
+  tick(CAT.WARN); game.tickCat();
+  expect(game.spinning).toBe(true); expect(game.speed).toBeCloseTo(SPEED_MAX);
+  expect(scene.setSpin).toHaveBeenLastCalledWith(true, SPEED_MAX);
   game.toggleLathe(); expect(game.spinning).toBe(true);           // 止められない
   expect(document.querySelector('.cat-say').textContent).toContain('ぐいーっ');
   tick(3); game.tickCat();
   expect(game.spinning).toBe(false);                                // 元に戻る
-  expect(game.breakFactorNow()).toBeCloseTo(base);
+  expect(game.speed).toBeCloseTo(1);
   expect(document.querySelector('[data-cat]').className).not.toContain('show');
+  expect(document.querySelector('[data-cat]').className).toContain('leave');
   expect(audio.playMeow).toHaveBeenCalled();
 });
 test('ハード：にゃにゃにゃにゃで回ったり止まったりする', () => {
   const { game, tick } = hardSetup([0, 0.9, 0.5]);
   game.setDifficulty('hard');
   game.goto('cutting', 0); game.toggleLathe();
-  tick(8); game.tickCat(); tick(1); game.tickCat();
+  tick(8); game.tickCat(); tick(CAT.WARN); game.tickCat();
   expect(document.querySelector('.cat-say').textContent).toBe('にゃにゃにゃにゃ！');
   const states = new Set([game.spinning]); let flips = 0, prev = game.spinning;
   for (let k = 0; k < 40; k++) { tick(0.05); game.tickCat(); if (game.spinning !== prev) { flips++; prev = game.spinning; } states.add(game.spinning); }
@@ -254,9 +258,43 @@ test('ハード：旋盤を回すまでは猫は来ず、面を出ると猫も�
   game.setDifficulty('hard');
   game.goto('cutting', 0); tick(30); game.tickCat();
   expect(document.querySelector('[data-cat]').className).not.toContain('show');
-  game.toggleLathe(); tick(8); game.tickCat(); tick(1); game.tickCat();
+  game.toggleLathe(); tick(8); game.tickCat(); tick(CAT.WARN); game.tickCat();
   game.finish();
   expect(game.spinning).toBe(false); expect(document.querySelector('[data-cat]')).toBeNull();
   expect(game.lastResult.hard).toBe(true);
   expect(document.querySelector('[data-result] .kicker').textContent).toContain('ハード');
+});
+test('ボタンを軽く押すと回す／止める', () => {
+  const { game } = setup();
+  game.goto('cutting', 0);
+  game.latheDown(); game.latheUp(); expect(game.spinning).toBe(true);
+  game.latheDown(); game.latheUp(); expect(game.spinning).toBe(false);
+});
+test('ボタンを長押しすると回転がだんだん速くなり、離してもその速さのまま', () => {
+  const { game, tick, scene } = setup();
+  game.goto('cutting', 0);
+  game.latheDown();
+  for (let k = 0; k < 20; k++) { tick(0.1); game.tickLathe(); }
+  expect(game.spinning).toBe(true); expect(game.speed).toBeGreaterThan(1.8);
+  game.latheUp(); expect(game.spinning).toBe(true);
+  const sp = game.speed; tick(1); game.tickLathe(); expect(game.speed).toBeCloseTo(sp);
+  expect(scene.setSpin).toHaveBeenLastCalledWith(true, sp);
+  expect(document.querySelector('[data-speed]').textContent).toBe(`×${sp.toFixed(1)}`);
+  for (let k = 0; k < 60; k++) { game.latheDown(); tick(0.1); game.tickLathe(); }
+  expect(game.speed).toBeLessThanOrEqual(SPEED_MAX);
+});
+test('止めて回し直すと、速さは元に戻る', () => {
+  const { game, tick } = setup();
+  game.goto('cutting', 0);
+  game.latheDown(); for (let k = 0; k < 20; k++) { tick(0.1); game.tickLathe(); } game.latheUp();
+  game.latheDown(); game.latheUp(); expect(game.spinning).toBe(false);
+  game.latheDown(); game.latheUp(); expect(game.speed).toBe(1);
+});
+test('速く回すと、太い所は折れにくく、細い所は折れやすい', () => {
+  const { game, tick } = setup();
+  game.goto('cutting', 0); game.toggleLathe();
+  const thick = game.breakFactorAt(0.35), thin = game.breakFactorAt(0.1);
+  game.latheDown(); for (let k = 0; k < 20; k++) { tick(0.1); game.tickLathe(); } game.latheUp();
+  expect(game.breakFactorAt(0.35)).toBeCloseTo(thick * game.speed);
+  expect(game.breakFactorAt(0.1)).toBeCloseTo(thin / game.speed);
 });

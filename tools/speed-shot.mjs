@@ -1,0 +1,12 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader','--no-proxy-server'] });
+const p = await b.newPage(); await p.setViewport({ width: 390, height: 844 });
+const errors = []; p.on('pageerror', (e) => errors.push(e.message));
+await p.goto('http://localhost:4173/', { waitUntil: 'load' });
+await p.click('[data-act="new"]'); await p.click('[data-act="tap"]'); await p.click('button[data-act="cut"]');
+const r = await p.$eval('[data-act="lathe"]', (e) => { const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; });
+await p.mouse.move(r.x, r.y); await p.mouse.down(); await new Promise((s) => setTimeout(s, 2000)); await p.mouse.up();
+await new Promise((s) => setTimeout(s, 300));
+await p.screenshot({ path: '/tmp/speed.png' });
+console.log(await p.$eval('[data-act="lathe"]', (e) => e.className + ' ' + e.textContent), errors);
+await b.close();

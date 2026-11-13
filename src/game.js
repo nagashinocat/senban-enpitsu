@@ -2,9 +2,9 @@ import { createProfile, cutSweep } from './profile.js';
 import { isBroken } from './breakage.js';
 import { matchRate, scoreResult } from './scoring.js';
 import { STAGES, KIWAMI, KIWAMI_INVITE, INTRO, ENDING, buildTarget, tipStartIndex } from './stages.js';
-import { MATCH_TOLERANCE } from './config.js';
+import { MATCH_TOLERANCE, SPEED_MAX, SPEED_RAMP, LONG_PRESS, THIN_RATIO, PENCIL_RADIUS } from './config.js';
 import { initCat, stepCat } from './cat.js';
-import { drawCat } from './cat-draw.js';
+import catUrl from './assets/cat.webp';
 import { screenToTool } from './input.js';
 import { drawSilhouette } from './silhouette.js';
 import { resultHtml, playResult } from './result-anim.js';
@@ -35,6 +35,8 @@ export function createGame(root, canvas, deps) {
   };
   g.mode = 'story';
   g.spinning = false;
+  g.speed = 1;
+  let pressAt = null, ramping = false, lastLatheT = 0, catPrevSpeed = 1;
   const rng = deps.rng || Math.random;
   const DIFF_KEY = 'senban-enpitsu:difficulty';
   g.difficulty = 'normal';
@@ -49,12 +51,14 @@ export function createGame(root, canvas, deps) {
     const el = root.querySelector('[data-cat]'); if (!el) return;
     el.className = `cat show ${pose}`;
     el.querySelector('.cat-say').textContent = say;
-    let c = null; try { c = el.querySelector('canvas').getContext('2d'); } catch { c = null; }
-    if (c) drawCat(c, pose, 160, 140);
   }
-  function hideCat() { const el = root.querySelector('[data-cat]'); if (el) el.className = 'cat'; }
+  function hideCat() { const el = root.querySelector('[data-cat]'); if (el && el.classList.contains('show')) el.className = 'cat leave'; }
   function resetCat() { catState = null; catHold = false; hideCat(); }
-  g.breakFactorNow = () => (L()[g.state.stage]?.breakFactor ?? 1) * (catHold ? 0.5 : 1);
+  // 速いほど、太い所は折れにくく、細い所は折れやすい
+  g.breakFactorAt = (r) => {
+    const bf = L()[g.state.stage]?.breakFactor ?? 1;
+    return r >= THIN_RATIO * PENCIL_RADIUS ? bf * g.speed : bf / g.speed;
+  };
   g.tickCat = () => {
     if (g.difficulty !== 'hard' || g.state.name !== 'cutting' || !catState) return;
     for (let n = 0; n < 4; n++) {
@@ -62,13 +66,14 @@ export function createGame(root, canvas, deps) {
       catState = r.cat;
       if (!r.actions.length) break;
       for (const a of r.actions) {
-        if (a === 'warn') { showCat('peek', 'にゃ？'); audio.playMeow?.('short'); }
+        if (a === 'warn') showCat('sneak', '（そろ〜り…）');
         else if (a === 'holdStart') {
-          catPrevSpin = g.spinning; catHold = true;
+          catPrevSpin = g.spinning; catPrevSpeed = g.speed; catHold = true; pressAt = null;
+          g.speed = SPEED_MAX;
           setSpinning(true, true);
           showCat('hold', '（ぐいーっ）'); audio.playMeow?.('long'); audio.vibrate([60, 40, 60]);
         } else if (a === 'holdEnd') {
-          catHold = false; setSpinning(catPrevSpin, true); hideCat();
+          catHold = false; g.speed = catPrevSpeed; setSpinning(catPrevSpin, true); applySpeed(); hideCat();
         } else if (a === 'nyaStart') { showCat('nya', 'にゃにゃにゃにゃ！'); audio.playMeow?.('nya'); }
         else if (a === 'tap') setSpinning(!g.spinning, true);
         else if (a === 'nyaEnd') hideCat();
@@ -76,13 +81,18 @@ export function createGame(root, canvas, deps) {
     }
   };
   const elapsed = () => (startedAt == null ? 0 : (now() - startedAt) / 1000);
+  function applySpeed() {
+    if (g.spinning) scene.setSpin(true, g.speed); else scene.setSpin(false);
+    audio.setMotorSpeed?.(g.spinning ? g.speed : 1);
+    const el = root.querySelector('[data-speed]'); if (el) el.textContent = `×${g.speed.toFixed(1)}`;
+  }
   function setSpinning(on, byCat = false) {
     const turboChanged = byCat;
     if (g.spinning === on && !turboChanged) return;
     const was = g.spinning;
     g.spinning = on;
-    if (on && catHold) scene.setSpin(true, true); else scene.setSpin(on);
-    audio.setMotorTurbo?.(on && catHold);
+    if (on && !was && !catHold) g.speed = 1;
+    applySpeed();
     if (on && !was) {
       audio.unlock(); audio.startMotor();
       if (startedAt == null && g.state.name === 'cutting') {
@@ -107,8 +117,8 @@ export function createGame(root, canvas, deps) {
   // --- 状態の切り替え ---
   g.goto = (name, stage = g.state.stage) => {
     audio.stopCutSound();
-    catHold = false; catState = null;
-    setSpinning(false);
+    catHold = false; catState = null; pressAt = null; ramping = false;
+    setSpinning(false); g.speed = 1;
     if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') g.mode = 'story';
     if (name === 'kiwami') g.mode = 'kiwami';
     g.state = { name, stage };
@@ -180,6 +190,29 @@ export function createGame(root, canvas, deps) {
     } finally { sharing = false; }
   };
   g.toggleLathe = () => { if (g.state.name === 'cutting' && !catHold) setSpinning(!g.spinning); };
+  // 軽く押す：回す／止める。長押し：だんだん速く
+  g.latheDown = () => {
+    if (g.state.name !== 'cutting' || catHold) return;
+    pressAt = now(); lastLatheT = pressAt; ramping = false;
+    root.querySelector('[data-act="lathe"]')?.classList.add('pressed');
+  };
+  g.latheUp = () => {
+    root.querySelector('[data-act="lathe"]')?.classList.remove('pressed');
+    if (pressAt == null) return;
+    const held = (now() - pressAt) / 1000;
+    pressAt = null;
+    if (!ramping && held < LONG_PRESS) g.toggleLathe();
+    ramping = false;
+  };
+  g.tickLathe = () => {
+    const t = now();
+    if (pressAt != null && !catHold && g.state.name === 'cutting' && (t - pressAt) / 1000 >= LONG_PRESS) {
+      if (!ramping) { ramping = true; if (!g.spinning) setSpinning(true); }
+      g.speed = Math.min(SPEED_MAX, g.speed + ((t - lastLatheT) / 1000) * SPEED_RAMP);
+      applySpeed();
+    }
+    lastLatheT = t;
+  };
   g.kiwamiUnlocked = () => clearedStageIds().has(STAGES[STAGES.length - 1].id);
   g.startKiwami = (i = 0) => { g.mode = 'kiwami'; g.goto('story', i); };
   g.unlockedStages = () => {
@@ -217,7 +250,7 @@ export function createGame(root, canvas, deps) {
       scene.markDirty(); scene.emitChips(g.tool.x, cut.removed);
       cutLevel = Math.min(1, cutLevel + cut.removed * 3);
       audio.setCutIntensity(cutLevel);
-      if (isBroken(g.profile, cut, g.breakFactorNow())) {
+      if (isBroken(g.profile, cut, g.breakFactorAt(g.profile.radii[cut.biteAt]))) {
         scene.flashBreak(); audio.stopCutSound(); audio.playBreak(); audio.vibrate([80, 40, 120]);
         g.goto('broken');
         return;
@@ -269,9 +302,9 @@ export function createGame(root, canvas, deps) {
     } else if (name === 'cutting') {
       html = `<div class="hud" data-hud>
         <div class="hud-top"><span>${label} ${esc(st.name)}</span><span>一致 <b data-match></b></span><span data-time></span></div>
-        <div class="hud-hint">まず左下のボタンで旋盤を回そう。画面をなぞると刃が動き、指を上へ動かすと削れる。ゆっくり！</div>
-        <div class="cat" data-cat><canvas width="160" height="140"></canvas><div class="cat-say"></div></div>
-        <button class="lathe-btn" data-act="lathe"><span class="lathe-dot"></span><span data-lathe-label>回す</span></button>
+        <div class="hud-hint">まず下のボタンで旋盤を回そう（長押しで速く）。画面をなぞると刃が動き、指を上へ動かすと削れる。ゆっくり！</div>
+        <div class="cat" data-cat><img src="${catUrl}" alt="猫" draggable="false"><div class="cat-say"></div></div>
+        <button class="lathe-btn" data-act="lathe"><span class="lathe-dot"></span><span data-lathe-label>回す</span><span class="lathe-speed" data-speed>×1.0</span></button>
         <button class="btn primary done" data-act="finish">完成</button></div>`;
     } else if (name === 'broken') {
       html = `<div class="panel center"><h2 class="boom">ポキッ！</h2><p class="line">折れた…</p>
@@ -302,7 +335,12 @@ export function createGame(root, canvas, deps) {
     on('[data-act="tap"]', () => g.goto('story', 0));
     on('[data-act="cut"]', () => g.goto('cutting'));
     on('[data-act="finish"]', () => g.finish());
-    on('[data-act="lathe"]', () => g.toggleLathe());
+    const lb = root.querySelector('[data-act="lathe"]');
+    if (lb) {
+      lb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); audio.unlock(); try { lb.setPointerCapture(e.pointerId); } catch { /* なくてもよい */ } g.latheDown(); });
+      for (const ev of ['pointerup', 'pointercancel']) lb.addEventListener(ev, (e) => { e.stopPropagation(); g.latheUp(); });
+      lb.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
     on('[data-act="difficulty"]', () => { g.setDifficulty(g.difficulty === 'hard' ? 'normal' : 'hard'); render(); });
     on('[data-act="retry"]', () => g.retry());
     on('[data-act="next"]', () => g.next());
@@ -323,6 +361,7 @@ export function createGame(root, canvas, deps) {
     const t = now(); const dt = Math.min(0.05, (t - last) / 1000); last = t;
     if (g.state.name === 'cutting') {
       g.tickCat();
+      g.tickLathe();
       cutLevel *= 0.9; audio.setCutIntensity(cutLevel);
       if (hud) hud.querySelector('[data-time]').textContent = `${elapsed().toFixed(1)}秒`;
     }

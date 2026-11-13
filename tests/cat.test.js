@@ -30,3 +30,4 @@ test('1フレームが長くても、いたずらを飛ばさず順に進む', (
   const r = stepCat(initCat(0, seq(0)), 30, seq(0.2));
   expect(r.actions[0]).toBe('warn');
 });
+test('そーっと近づく時間は2秒以上', () => expect(CAT.WARN).toBeGreaterThanOrEqual(2));

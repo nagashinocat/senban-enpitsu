@@ -81,25 +81,32 @@ h2 { font-size: 28px; margin: 0; }
 }
 .kiwami-btn { background: #1c1410; color: #f2d58a; border-color: #b8913a; font-weight: bold; letter-spacing: .1em; font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; }
 .invite { font-size: 16px; opacity: .9; }
-.lathe-btn { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0)); pointer-events: auto; width: 92px; height: 92px; border-radius: 50%;
+.lathe-btn { position: absolute; left: calc(50% - 46px); bottom: calc(16px + env(safe-area-inset-bottom, 0)); touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: auto; width: 92px; height: 92px; border-radius: 50%;
   border: 5px solid #3a3f47; background: radial-gradient(circle at 40% 35%, #ff6a5a, #b81f14 70%); color: #fff; font: inherit; font-weight: bold; font-size: 17px;
   box-shadow: 0 6px 0 #5a0e08, 0 0 0 4px #f2b632; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; }
-.lathe-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #5a0e08, 0 0 0 4px #f2b632; }
+.lathe-btn.pressed { transform: translateY(4px); box-shadow: 0 2px 0 #5a0e08, 0 0 0 4px #f2b632; }
 .lathe-btn.on { background: radial-gradient(circle at 40% 35%, #7cf09a, #1e9b45 70%); box-shadow: 0 6px 0 #0d4a20, 0 0 0 4px #f2b632, 0 0 22px #5cff8a88; }
 .lathe-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff6; }
 .lathe-btn.on .lathe-dot { background: #fff; animation: blink 0.5s infinite; }
 #bgm-toggle { position: fixed; top: calc(52px + env(safe-area-inset-top, 0)); right: 10px; z-index: 5; width: 40px; height: 40px; border-radius: 50%;
   border: 2px solid #f4f1ea55; background: #2d333ccc; color: #f4f1ea; font-size: 20px; cursor: pointer; }
 #bgm-toggle.off { opacity: .55; text-decoration: line-through; }
-/* ハードの猫 */
-.cat { position: absolute; z-index: 3; left: 0; bottom: calc(96px + env(safe-area-inset-bottom, 0)); width: 130px; pointer-events: none; opacity: 0;
-  transform: translateX(-110%); transition: transform .35s cubic-bezier(.3,1.4,.5,1), opacity .2s; }
-.cat canvas { width: 130px; height: auto; display: block; }
-.cat.show { opacity: 1; }
-.cat.peek { transform: translateX(-45%) rotate(12deg); }
-.cat.hold { transform: translate(8px, 52px); }
-.cat.nya { transform: translate(8px, 44px); animation: nya .18s infinite; }
-@keyframes nya { 50% { transform: translate(14px, 58px) rotate(-4deg); } }
-.cat-say { position: absolute; left: 70%; top: -6px; white-space: nowrap; background: #fff; color: #222; font-weight: bold; font-size: 15px; padding: 5px 10px; border-radius: 12px; }
-.cat.peek .cat-say { left: 92%; top: 10px; }
+/* ハードの猫：右からそーっと来て、上げた前足で左下のボタンを押す */
+.cat { --w: 190px; position: absolute; z-index: 3; left: 0; bottom: env(safe-area-inset-bottom, 0); width: var(--w); pointer-events: none;
+  transform: translateX(110vw); }
+.cat img { width: 100%; display: block; filter: drop-shadow(0 6px 6px #0008); user-select: none; -webkit-user-drag: none; }
+/* 前足（画像の左 8.5%・上 70%）が下の真ん中のボタン（中心 下 62px）に来る位置 */
+.cat.hold, .cat.nya { transform: translate(calc(50vw - 16px), -6px); transition: transform .25s ease-out; }
+.cat.sneak { transform: translate(calc(50vw + 90px), 0); transition: transform 2.4s cubic-bezier(.25,.1,.3,1); }
+.cat.sneak img { animation: sneak .7s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes sneak { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(-1.5deg); } }
+.cat.hold img { animation: press .5s ease-in-out infinite; transform-origin: 10% 75%; }
+@keyframes press { 50% { transform: translateY(4px) scaleY(.97); } }
+.cat.nya img { animation: tap .2s ease-in-out infinite; transform-origin: 70% 100%; }
+@keyframes tap { 50% { transform: translate(-2px, -12px) rotate(3deg); } }
+.cat.leave { transform: translateX(110vw); transition: transform .7s ease-in; }
+.cat-say { position: absolute; left: 34%; top: -14px; white-space: nowrap; background: #fff; color: #222; font-weight: bold; font-size: 15px; padding: 5px 10px; border-radius: 12px; opacity: 0; transition: opacity .2s; }
+.cat.show .cat-say { opacity: 1; }
+.cat.sneak .cat-say { font-size: 13px; font-weight: normal; background: #ffffffcc; }
 .btn.diff.hard { background: #3a1d1d; border-color: #f0a54a; color: #f0a54a; }
+.lathe-speed { font-size: 12px; font-weight: bold; opacity: .9; font-variant-numeric: tabular-nums; }

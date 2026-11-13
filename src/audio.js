@@ -82,11 +82,11 @@ export function stopMotor() {
   g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 1);
   o.stop(t + 1.05); o2.stop(t + 1.05);
 }
-export function setMotorTurbo(on) {
+export function setMotorSpeed(speed = 1) {
   const c = ctx; if (!c || !motor) return;
-  const t = c.currentTime, f = on ? 1.9 : 1;
-  motor.o.frequency.cancelScheduledValues(t); motor.o.frequency.setValueAtTime(motor.o.frequency.value, t); motor.o.frequency.linearRampToValueAtTime(58 * f, t + 0.4);
-  motor.o2.frequency.cancelScheduledValues(t); motor.o2.frequency.setValueAtTime(motor.o2.frequency.value, t); motor.o2.frequency.linearRampToValueAtTime(116 * f, t + 0.4);
+  const t = c.currentTime;
+  motor.o.frequency.cancelScheduledValues(t); motor.o.frequency.setValueAtTime(motor.o.frequency.value, t); motor.o.frequency.linearRampToValueAtTime(58 * speed, t + 0.15);
+  motor.o2.frequency.cancelScheduledValues(t); motor.o2.frequency.setValueAtTime(motor.o2.frequency.value, t); motor.o2.frequency.linearRampToValueAtTime(116 * speed, t + 0.15);
 }
 // にゃー（声の高さを上下させた音に、口の形のフィルターをかける）
 export function playMeow(kind = 'short') {
