@@ -67,17 +67,24 @@ export function createGame(root, canvas, deps) {
     if (i >= STAGES.length - 1) g.goto('ending', i); else g.goto('story', i + 1);
   };
   g.retry = () => g.goto('cutting', g.state.stage);
+  let sharing = false;
   g.onShare = async () => {
-    if (!share || !g.lastResult) return;
+    if (!share || !g.lastResult || sharing) return;
+    sharing = true;
     const r = g.lastResult;
     const msg = root.querySelector('[data-share-msg]');
     const text = share.buildShareText(r);
-    const blob = await share.makeResultBlob({ image: scene.snapshot(), target: g.target, profile: g.profile, ...r });
-    const info = {};
-    const res = await share.shareResult(blob, text, info);
-    if (msg && res === 'fallback') {
-      msg.textContent = info.copied ? '画像を保存しました。投稿文をコピーしました。' : `画像を保存しました。投稿文はこちら：\n${text}`;
-    }
+    try {
+      const blob = await share.makeResultBlob({ image: scene.snapshot(), target: g.target, profile: g.profile, ...r });
+      if (!blob) { if (msg) msg.textContent = `画像を作れませんでした。投稿文はこちら：\n${text}`; return; }
+      const info = {};
+      const res = await share.shareResult(blob, text, info);
+      if (msg && res === 'fallback') {
+        msg.textContent = info.copied ? '画像を保存しました。投稿文をコピーしました。' : `画像を保存しました。投稿文はこちら：\n${text}`;
+      }
+    } catch {
+      if (msg) msg.textContent = `共有できませんでした。投稿文はこちら：\n${text}`;
+    } finally { sharing = false; }
   };
   g.unlockedStages = () => {
     const cleared = clearedStageIds();

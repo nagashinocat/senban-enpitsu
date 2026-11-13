@@ -78,3 +78,34 @@ test('共有できないとき、保存とコピーの案内が出る', async ()
   const msg = document.querySelector('[data-share-msg]').textContent;
   expect(msg).toContain('画像を保存しました'); expect(msg).toContain('TEXT');
 });
+test('共有中にもう一度押しても二重に動かない', async () => {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps(); let release;
+  const share = { makeResultBlob: vi.fn(() => Promise.resolve(new Blob(['x']))), buildShareText: vi.fn(() => 'T'),
+    shareResult: vi.fn(() => new Promise((r) => { release = () => r('shared'); })) };
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, share });
+  game.goto('cutting', 0); game.finish();
+  const a = game.onShare(); await Promise.resolve(); await Promise.resolve();
+  await game.onShare();
+  release(); await a;
+  expect(share.shareResult).toHaveBeenCalledTimes(1);
+});
+test('画像が作れなければ「保存しました」と言わず、投稿文を出す', async () => {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps();
+  const share = { makeResultBlob: vi.fn(() => Promise.resolve(null)), buildShareText: vi.fn(() => 'TEXT'), shareResult: vi.fn() };
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, share });
+  game.goto('cutting', 0); game.finish(); await game.onShare();
+  const msg = document.querySelector('[data-share-msg]').textContent;
+  expect(msg).not.toContain('保存しました'); expect(msg).toContain('TEXT');
+});
+test('共有の途中で例外が出ても落ちず、投稿文を出す', async () => {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps();
+  const share = { makeResultBlob: vi.fn(() => Promise.resolve(new Blob(['x']))), buildShareText: vi.fn(() => 'TEXT'),
+    shareResult: vi.fn(() => Promise.reject(new Error('File is not defined'))) };
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, share });
+  game.goto('cutting', 0); game.finish();
+  await expect(game.onShare()).resolves.toBeUndefined();
+  expect(document.querySelector('[data-share-msg]').textContent).toContain('TEXT');
+});

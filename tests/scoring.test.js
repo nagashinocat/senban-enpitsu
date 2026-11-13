@@ -2,14 +2,15 @@ import { test, expect } from 'vitest';
 import { createProfile } from '../src/profile.js';
 import { matchRate, timeBonus, scoreResult, rankOf } from '../src/scoring.js';
 import { SAMPLES } from '../src/config.js';
+import { STAGES, buildTarget } from '../src/stages.js';
 
 test('目標とぴったりなら一致率100', () => {
   const p = createProfile(); expect(matchRate(p, p.radii.slice())).toBe(100);
 });
 test('削りすぎは削り残しより低い', () => {
   const t = new Float32Array(SAMPLES).fill(0.3);
-  const under = createProfile(); under.radii.fill(0.29);
-  const over = createProfile(); over.radii.fill(0.31);
+  const under = createProfile(); under.radii.fill(0.27);
+  const over = createProfile(); over.radii.fill(0.33);
   expect(matchRate(under, t)).toBeLessThan(matchRate(over, t));
 });
 test('何も削らずに完成しても NaN にならない', () => {
@@ -33,4 +34,14 @@ test('形が合っていなければタイムボーナスはつかない', () =>
 });
 test('一致率が高いほどタイムボーナスがそのまま効く', () => {
   const p = createProfile(); expect(scoreResult(p, p.radii.slice(), 0, 30).bonus).toBe(200);
+});
+test('点線から1px（縦持ち画面）ずれただけなら、どの面も A 以上', () => {
+  for (const st of STAGES) {
+    const t = buildTarget(st); const p = createProfile();
+    for (let i = 0; i < t.length; i++) p.radii[i] = Math.max(0, t[i] - 0.018);
+    expect(scoreResult(p, t, 999, st.parSeconds).total).toBeGreaterThanOrEqual(850);
+  }
+});
+test('何も削らずにすぐ完成したら、どの面も C', () => {
+  for (const st of STAGES) expect(scoreResult(createProfile(), buildTarget(st), 0, st.parSeconds).rank).toBe('C');
 });

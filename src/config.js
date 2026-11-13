@@ -8,7 +8,8 @@ export const CORE_RADIUS = 0.1;
 export const AREA_LIMIT = 0.03;
 // 採点
 export const OVERCUT_WEIGHT = 2;
-export const MATCH_TOLERANCE = 0.1; // PENCIL_RADIUS に対する割合
+export const MATCH_TOLERANCE = 0.15; // PENCIL_RADIUS に対する割合
+export const MATCH_DEADBAND = 0.05; // 点線の太さほどの差（縦持ちで約1px）は0とみなす
 export const TIME_BONUS_MAX = 200;
 export const RANKS = [['S', 1000], ['A', 850], ['B', 700], ['C', 0]];
 

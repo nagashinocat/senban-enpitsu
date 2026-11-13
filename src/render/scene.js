@@ -1,12 +1,9 @@
 import * as THREE from 'three';
-import { PENCIL_LENGTH, PENCIL_RADIUS, CORE_RADIUS } from '../config.js';
+import { PENCIL_LENGTH } from '../config.js';
+import { SEG, createLatheGeometry, updateLatheGeometry } from './lathe.js';
 
-const SEG = 40;          // 周方向の分割
 const MARGIN = 0.5;      // 鉛筆の左右の余白（ワールド単位）
 const TILT = 0.35;       // 少し上から見下ろす角度（回転体なので輪郭は変わらない）
-const PAINT = new THREE.Color('#f2b632');
-const WOOD = new THREE.Color('#e8c99a');
-const LEAD = new THREE.Color('#2b2b2e');
 
 export function createScene(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -44,36 +41,6 @@ export function createScene(canvas) {
   let geom = null, mesh = null, profileRef = null, dirty = false;
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0 });
 
-  function buildGeom(n) {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * (SEG + 1) * 3), 3));
-    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * (SEG + 1) * 3), 3));
-    const idx = [];
-    for (let i = 0; i < n - 1; i++) for (let j = 0; j < SEG; j++) {
-      const a = i * (SEG + 1) + j, b = a + SEG + 1;
-      idx.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-    g.setIndex(idx);
-    return g;
-  }
-  function updateGeom() {
-    const { radii, dx } = profileRef;
-    const pos = geom.attributes.position.array, col = geom.attributes.color.array;
-    let k = 0;
-    for (let i = 0; i < radii.length; i++) {
-      const r = radii[i];
-      const c = r <= CORE_RADIUS + 1e-4 ? LEAD : r >= PENCIL_RADIUS - 1e-4 ? PAINT : WOOD;
-      for (let j = 0; j <= SEG; j++) {
-        const t = (j / SEG) * Math.PI * 2;
-        pos[k] = i * dx; pos[k + 1] = Math.cos(t) * r; pos[k + 2] = Math.sin(t) * r;
-        col[k] = c.r; col[k + 1] = c.g; col[k + 2] = c.b; k += 3;
-      }
-    }
-    geom.attributes.position.needsUpdate = true; geom.attributes.color.needsUpdate = true;
-    geom.computeVertexNormals();
-    geom.computeBoundingSphere();
-  }
-
   // 画面に正対する平面（カメラの子）：点線と刃。y=0 が鉛筆の軸
   const overlay = new THREE.Group(); overlay.position.set(0, 0, -1); camera.add(overlay);
   const dashMat = new THREE.LineDashedMaterial({ color: '#7fe3ff', dashSize: 0.08, gapSize: 0.06, depthTest: false, transparent: true });
@@ -101,7 +68,7 @@ export function createScene(canvas) {
     setProfile(profile) {
       if (!geom || geom.attributes.position.count !== profile.radii.length * (SEG + 1)) {
         if (mesh) { spin.remove(mesh); geom.dispose(); }
-        geom = buildGeom(profile.radii.length); mesh = new THREE.Mesh(geom, mat); spin.add(mesh);
+        geom = createLatheGeometry(profile.radii.length); mesh = new THREE.Mesh(geom, mat); spin.add(mesh);
       }
       profileRef = profile; dirty = true;
     },
@@ -144,7 +111,7 @@ export function createScene(canvas) {
     },
     render(dt) {
       spin.rotation.x += dt * 12; jaws.rotation.x += dt * 12;
-      if (dirty && profileRef) { updateGeom(); dirty = false; }
+      if (dirty && profileRef) { updateLatheGeometry(geom, profileRef); dirty = false; }
       for (let i = 0; i < MAXP; i++) {
         if (pLife[i] <= 0) { pPos[i * 3 + 1] = -99; continue; }
         pLife[i] -= dt; pVel[i * 3 + 1] -= 6 * dt;

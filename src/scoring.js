@@ -1,4 +1,4 @@
-import { PENCIL_RADIUS, OVERCUT_WEIGHT, MATCH_TOLERANCE, TIME_BONUS_MAX, RANKS } from './config.js';
+import { PENCIL_RADIUS, OVERCUT_WEIGHT, MATCH_TOLERANCE, MATCH_DEADBAND, TIME_BONUS_MAX, RANKS } from './config.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -9,7 +9,8 @@ export function matchRate(profile, target) {
   let sum = 0;
   for (let i = 0; i < n; i++) {
     const e = (radii[i] - target[i]) / PENCIL_RADIUS;
-    sum += e < 0 ? -e * OVERCUT_WEIGHT : e;
+    const d = Math.max(0, Math.abs(e) - MATCH_DEADBAND);
+    sum += e < 0 ? d * OVERCUT_WEIGHT : d;
   }
   const m = sum / n;
   return 100 * clamp(1 - m / MATCH_TOLERANCE, 0, 1);
