@@ -33,3 +33,12 @@ test('B は色あせ、C は青ざめて冷や汗', () => {
 test('画像がまだ読めていなくても落ちない', () => {
   const ctx = fakeCtx(); expect(() => drawMasterPhoto(ctx, null, 'S', 600, 300)).not.toThrow();
 });
+test('画像も効果も窓の中だけに描く（はみ出した所に効果がかからない部分を作らない）', () => {
+  const calls = [];
+  const ctx = new Proxy({}, { get: (t, k) => k in t ? t[k] : (k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : (...a) => calls.push([k, ...a])), set: (t, k, v) => { t[k] = v; return true; } });
+  drawMasterPhoto(ctx, img, 'C', 600, 300);
+  const clipAt = calls.findIndex((c) => c[0] === 'clip');
+  const drawAt = calls.findIndex((c) => c[0] === 'drawImage');
+  expect(clipAt).toBeGreaterThanOrEqual(0); expect(clipAt).toBeLessThan(drawAt);
+  expect(calls.find((c) => c[0] === 'rect')).toEqual(['rect', 0, 0, 600, 300]);
+});

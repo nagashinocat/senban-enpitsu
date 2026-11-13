@@ -15,6 +15,8 @@ function star(ctx, x, y, r) {
 
 export function drawMasterPhoto(ctx, img, mood = 'A', w = 680, h = 300) {
   ctx.save();
+  // 窓の外にはみ出した画像に効果がかからない部分が出ないよう、窓の形で切り抜く
+  ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
   ctx.fillStyle = '#1b1d22'; ctx.fillRect(0, 0, w, h);
   if (!img || !img.width) { ctx.restore(); return; }
   // 窓いっぱいに切り抜く（cover）
