@@ -1,0 +1,15 @@
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader','--no-proxy-server'] });
+const page = await b.newPage(); await page.setViewport({ width: 390, height: 844 });
+const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+await page.evaluateOnNewDocument(() => { Storage.prototype.setItem = () => { throw new Error('quota'); }; Storage.prototype.getItem = () => { throw new Error('denied'); }; delete Navigator.prototype.share; });
+await page.goto('http://localhost:4173/', { waitUntil: 'load' });
+const w = (ms) => new Promise((r) => setTimeout(r, ms));
+await page.click('[data-act="new"]'); await page.click('[data-act="tap"]'); await page.click('button[data-act="cut"]');
+await page.click('[data-act="finish"]'); await w(200);
+const res = await page.$eval('.stats', (e) => e.innerText);
+await page.setViewport({ width: 844, height: 390 }); await w(500);
+await page.click('[data-act="next"]'); await page.click('button[data-act="cut"]'); await w(300);
+await page.screenshot({ path: '/tmp/edge-rot.png' });
+console.log(JSON.stringify({ res, errors }));
+await b.close();
