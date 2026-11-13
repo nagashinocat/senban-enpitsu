@@ -2,7 +2,7 @@ import { test, expect } from 'vitest';
 import { createProfile } from '../src/profile.js';
 import { matchRate, timeBonus, scoreResult, rankOf } from '../src/scoring.js';
 import { SAMPLES } from '../src/config.js';
-import { STAGES, buildTarget } from '../src/stages.js';
+import { STAGES, buildTarget, tipStartIndex } from '../src/stages.js';
 
 test('目標とぴったりなら一致率100', () => {
   const p = createProfile(); expect(matchRate(p, p.radii.slice())).toBe(100);
@@ -39,9 +39,20 @@ test('点線から1px（縦持ち画面）ずれただけなら、どの面も A
   for (const st of STAGES) {
     const t = buildTarget(st); const p = createProfile();
     for (let i = 0; i < t.length; i++) p.radii[i] = Math.max(0, t[i] - 0.018);
-    expect(scoreResult(p, t, 999, st.parSeconds).total).toBeGreaterThanOrEqual(850);
+    expect(scoreResult(p, t, 999, st.parSeconds, tipStartIndex(st)).total).toBeGreaterThanOrEqual(850);
   }
 });
 test('何も削らずにすぐ完成したら、どの面も C', () => {
-  for (const st of STAGES) expect(scoreResult(createProfile(), buildTarget(st), 0, st.parSeconds).rank).toBe('C');
+  for (const st of STAGES) expect(scoreResult(createProfile(), buildTarget(st), 0, st.parSeconds, tipStartIndex(st)).rank).toBe('C');
+});
+test('採点は先端の部分の大きさで割る（手前の削らない部分で水増ししない）', () => {
+  const st = STAGES[2]; const t = buildTarget(st); const k = tipStartIndex(st);
+  expect(matchRate(createProfile(), t, k)).toBeLessThan(matchRate(createProfile(), t, 0));
+});
+test('先端の外を削りすぎたら減点される', () => {
+  const st = STAGES[2]; const t = buildTarget(st); const k = tipStartIndex(st);
+  const p = createProfile(); p.radii.set(t);
+  expect(matchRate(p, t, k)).toBe(100);
+  for (let i = 0; i < 20; i++) p.radii[i] = 0.25;
+  expect(matchRate(p, t, k)).toBeLessThan(100);
 });

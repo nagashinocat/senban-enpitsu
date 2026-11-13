@@ -6,7 +6,7 @@ import { _resetForTest } from '../src/storage.js';
 
 function fakeDeps() {
   const scene = { view: { xMin: 0, xMax: 6, yMin: -1, yMax: 1 }, setProfile: vi.fn(), markDirty: vi.fn(), setTarget: vi.fn(),
-    setTool: vi.fn(), setZoom: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
+    setTool: vi.fn(), setZoom: vi.fn(), setFocus: vi.fn(), emitChips: vi.fn(), flashBreak: vi.fn(), resize: vi.fn(), render: vi.fn(), snapshot: vi.fn(), dispose: vi.fn() };
   const audio = { unlock: vi.fn(), startCutSound: vi.fn(), setCutIntensity: vi.fn(), stopCutSound: vi.fn(), playBreak: vi.fn(), playDing: vi.fn(), vibrate: vi.fn() };
   let t = 0;
   return { scene, audio, deps: { createScene: () => scene, attachInput: vi.fn(() => () => {}), audio, now: () => t, raf: () => 0 }, tick: (s) => { t += s * 1000; } };
@@ -119,4 +119,9 @@ test('削り始めたらヒントが消える（拡大窓と重ならないよ�
   const { game } = setup();
   game.goto('cutting', 0); expect(document.querySelector('.hud-hint')).not.toBeNull();
   game.handleStart(); expect(document.querySelector('.hud-hint')).toBeNull();
+});
+test('削る面では、カメラが先端の部分に寄る', () => {
+  const { game, scene } = setup();
+  game.goto('cutting', 3); expect(scene.setFocus).toHaveBeenLastCalledWith(expect.any(Number));
+  expect(scene.setFocus.mock.lastCall[0]).toBeGreaterThan(2.5);
 });

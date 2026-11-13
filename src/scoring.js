@@ -2,7 +2,8 @@ import { PENCIL_RADIUS, OVERCUT_WEIGHT, MATCH_TOLERANCE, MATCH_DEADBAND, TIME_BO
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function matchRate(profile, target) {
+// from：採点する先端の部分の始まり。手前は削りすぎだけが効き、割るのは先端の部分の大きさ
+export function matchRate(profile, target, from = 0) {
   const { radii } = profile;
   const n = Math.min(radii.length, target.length);
   if (!n) return 0;
@@ -12,7 +13,7 @@ export function matchRate(profile, target) {
     const d = Math.max(0, Math.abs(e) - MATCH_DEADBAND);
     sum += e < 0 ? d * OVERCUT_WEIGHT : d;
   }
-  const m = sum / n;
+  const m = sum / Math.max(1, n - from);
   return 100 * clamp(1 - m / MATCH_TOLERANCE, 0, 1);
 }
 
@@ -26,8 +27,8 @@ export function rankOf(total) {
   return 'C';
 }
 
-export function scoreResult(profile, target, seconds, parSeconds) {
-  const match = matchRate(profile, target);
+export function scoreResult(profile, target, seconds, parSeconds, from = 0) {
+  const match = matchRate(profile, target, from);
   // 形が合っているほどタイムボーナスが効く（何も削らずに即完成で稼げないように）
   const bonus = timeBonus(seconds, parSeconds) * (match / 100);
   const total = Math.round(match * 10 + bonus);

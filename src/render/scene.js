@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { PENCIL_LENGTH, PENCIL_RADIUS } from '../config.js';
 import { SEG, createLatheGeometry, updateLatheGeometry } from './lathe.js';
-import { zoomRect, zoomCenter } from './zoom.js';
+import { zoomRect, zoomCenter, focusFrame } from './zoom.js';
 
-const MARGIN = 0.5;      // 鉛筆の左右の余白（ワールド単位）
 const TILT = 0.35;       // 少し上から見下ろす角度（回転体なので輪郭は変わらない）
 
 export function createScene(canvas) {
@@ -62,6 +61,7 @@ export function createScene(canvas) {
   let pNext = 0;
 
   let view = { xMin: -1, xMax: 1, yMin: -1, yMax: 1 };
+  let focusFrom = 0, lastTarget = null;
   // 拡大窓（ルーペ）：同じ向きの小さな正射影カメラで、刃のまわりだけ映す
   const ZOOM_HALF_H = 0.3;
   const zoomCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
@@ -102,6 +102,7 @@ export function createScene(canvas) {
     },
     markDirty() { dirty = true; },
     setTarget(target) {
+      lastTarget = target;
       for (const l of lines) { overlay.remove(l); l.geometry.dispose(); }
       lines = [];
       if (!target) return;
@@ -126,17 +127,19 @@ export function createScene(canvas) {
       }
     },
     flashBreak() { shake = 0.4; },
+    setFocus(xFrom) { focusFrom = xFrom; api.resize(); },
     resize() {
       const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
       renderer.setSize(w, h, false); cssW = w; cssH = h;
-      const halfW = PENCIL_LENGTH / 2 + MARGIN;
-      const halfH = halfW * (h / w);
-      // 横長の画面では高さに合わせる
-      const minHalfH = 1.4;
-      const hh = Math.max(halfH, minHalfH), hw = hh === halfH ? halfW : minHalfH * (w / h);
-      camera.left = -hw; camera.right = hw; camera.top = hh; camera.bottom = -hh;
+      const f = focusFrame(focusFrom, w, h);
+      center.x = f.cx;
+      camera.position.set(center.x, Math.sin(TILT) * 10, Math.cos(TILT) * 10);
+      camera.lookAt(center);
+      camera.left = -f.hw; camera.right = f.hw; camera.top = f.hh; camera.bottom = -f.hh;
       camera.updateProjectionMatrix();
-      view = { xMin: center.x - hw, xMax: center.x + hw, yMin: -hh, yMax: hh };
+      view = { xMin: center.x - f.hw, xMax: center.x + f.hw, yMin: -f.hh, yMax: f.hh };
+      if (lastTarget) api.setTarget(lastTarget);
+      api.setTool(toolRef);
     },
     render(dt) {
       spin.rotation.x += dt * 12; jaws.rotation.x += dt * 12;

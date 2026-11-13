@@ -22,3 +22,12 @@ export function zoomCenter(profile, tool) {
   const x = Math.max(0, Math.min(PENCIL_LENGTH, tool.x));
   return { x, y: -profile.radii[xToIndex(profile, x)] };
 }
+
+// 先端に寄せた画角：xFrom（先端の部分の始まり）から鉛筆の端までが収まる
+export function focusFrame(xFrom, w, h) {
+  const left = xFrom - 0.6, right = PENCIL_LENGTH + 0.6;
+  let hw = (right - left) / 2, hh = hw * (h / w);
+  const MIN_HH = 1.4;
+  if (hh < MIN_HH) { hh = MIN_HH; hw = hh * (w / h); }
+  return { cx: (left + right) / 2, hw, hh };
+}

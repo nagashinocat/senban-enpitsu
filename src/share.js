@@ -9,7 +9,7 @@ export function buildShareText({ stageName, rank, total, seconds }) {
 const RANK_COLOR = { S: '#ffd84d', A: '#7fe3ff', B: '#a8e07a', C: '#c9b9a6' };
 
 // 1080×1080 の結果カード
-export function drawResultCard(ctx, { image, target, profile, stageName, rank, total, seconds }) {
+export function drawResultCard(ctx, { image, target, profile, from = 0, stageName, rank, total, seconds }) {
   const S = 1080;
   ctx.fillStyle = '#20242b'; ctx.fillRect(0, 0, S, S);
   ctx.fillStyle = '#f2b632'; ctx.font = 'bold 56px sans-serif'; ctx.textAlign = 'center';
@@ -22,8 +22,9 @@ export function drawResultCard(ctx, { image, target, profile, stageName, rank, t
   }
   const box = { x: 90, y: 645, w: S - 180, h: 200 };
   ctx.fillStyle = '#ffffff10'; ctx.fillRect(60, 630, S - 120, 230);
-  if (profile) drawSilhouette(ctx, profile.radii, box, { fill: '#e8c99a' });
-  if (target) drawSilhouette(ctx, target, box, { dashed: true, lineWidth: 5 });
+  // 彫った先端の部分だけを大きく見せる
+  if (profile) drawSilhouette(ctx, profile.radii.slice(from), box, { fill: '#e8c99a' });
+  if (target) drawSilhouette(ctx, target.slice(from), box, { dashed: true, lineWidth: 5 });
   ctx.fillStyle = RANK_COLOR[rank] || '#fff'; ctx.font = '900 200px sans-serif';
   ctx.fillText(rank, 260, 1050);
   ctx.textAlign = 'left'; ctx.fillStyle = '#f4f1ea'; ctx.font = 'bold 60px sans-serif';

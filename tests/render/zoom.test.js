@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { zoomRect, zoomCenter } from '../../src/render/zoom.js';
+import { zoomRect, zoomCenter, focusFrame } from '../../src/render/zoom.js';
 import { createProfile, cutSweep } from '../../src/profile.js';
 import { PENCIL_LENGTH } from '../../src/config.js';
 
@@ -25,4 +25,11 @@ test('刃が鉛筆の外に出ても中心は鉛筆の範囲内', () => {
   const p = createProfile();
   expect(zoomCenter(p, { x: -3, r: 0.6 }).x).toBe(0);
   expect(zoomCenter(p, { x: 99, r: 0.6 }).x).toBe(PENCIL_LENGTH);
+});
+test('先端に寄せた画角は、先端の部分と鉛筆の端が収まる', () => {
+  for (const [w, h] of [[390, 844], [844, 390]]) {
+    const f = focusFrame(4, w, h);
+    expect(f.cx - f.hw).toBeLessThanOrEqual(4 - 0.3); expect(f.cx + f.hw).toBeGreaterThanOrEqual(PENCIL_LENGTH + 0.3);
+    expect(f.hh / f.hw).toBeCloseTo(h / w); expect(f.hh).toBeGreaterThanOrEqual(1.4 - 1e-9);
+  }
 });

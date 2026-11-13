@@ -1,7 +1,7 @@
 import { createProfile, cutSweep } from './profile.js';
 import { isBroken } from './breakage.js';
 import { matchRate, scoreResult } from './scoring.js';
-import { STAGES, INTRO, ENDING, buildTarget } from './stages.js';
+import { STAGES, INTRO, ENDING, buildTarget, tipStartIndex } from './stages.js';
 import { screenToTool } from './input.js';
 import { drawSilhouette } from './silhouette.js';
 import { saveResult, loadRecords, clearedStageIds } from './storage.js';
@@ -22,7 +22,7 @@ export function createGame(root, canvas, deps) {
     tool: { x: PENCIL_LENGTH / 2, r: TOOL_REST_R },
     lastResult: null,
   };
-  let ref = null, startedAt = 0, liveMatch = 0, cutLevel = 0;
+  let ref = null, startedAt = 0, liveMatch = 0, cutLevel = 0, tipFrom = 0;
 
   function freshPencil() {
     g.profile = createProfile();
@@ -35,15 +35,19 @@ export function createGame(root, canvas, deps) {
     audio.stopCutSound();
     g.state = { name, stage };
     scene.setZoom(name === 'cutting');
+    const tipX = () => tipStartIndex(STAGES[stage]) * g.profile.dx;
     if (name === 'cutting') {
       freshPencil();
+      tipFrom = tipStartIndex(STAGES[stage]);
+      scene.setFocus(tipX());
       g.target = buildTarget(STAGES[stage]);
       scene.setTarget(g.target);
-      startedAt = now(); liveMatch = matchRate(g.profile, g.target); ref = null;
+      startedAt = now(); liveMatch = matchRate(g.profile, g.target, tipFrom); ref = null;
+      g.tool = { x: tipX() + (PENCIL_LENGTH - tipX()) / 2, r: TOOL_REST_R }; scene.setTool(g.tool);
     } else if (name === 'story') {
-      freshPencil(); scene.setTarget(buildTarget(STAGES[stage]));
+      freshPencil(); scene.setFocus(tipX()); scene.setTarget(buildTarget(STAGES[stage]));
     } else if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') {
-      freshPencil(); scene.setTarget(null);
+      freshPencil(); scene.setFocus(0); scene.setTarget(null);
     }
     render();
   };
@@ -57,7 +61,7 @@ export function createGame(root, canvas, deps) {
     if (g.state.name !== 'cutting') return;
     const seconds = (now() - startedAt) / 1000;
     const stage = STAGES[g.state.stage];
-    const s = scoreResult(g.profile, g.target, seconds, stage.parSeconds);
+    const s = scoreResult(g.profile, g.target, seconds, stage.parSeconds, tipFrom);
     g.lastResult = { ...s, seconds, stageId: stage.id, stageName: stage.name };
     saveResult(stage.id, { total: s.total, rank: s.rank, seconds });
     audio.playDing(); audio.vibrate(30);
@@ -76,7 +80,7 @@ export function createGame(root, canvas, deps) {
     const msg = root.querySelector('[data-share-msg]');
     const text = share.buildShareText(r);
     try {
-      const blob = await share.makeResultBlob({ image: scene.snapshot(), target: g.target, profile: g.profile, ...r });
+      const blob = await share.makeResultBlob({ image: scene.snapshot(), target: g.target, profile: g.profile, from: Math.max(0, tipFrom - 12), ...r });
       if (!blob) { if (msg) msg.textContent = `画像を作れませんでした。投稿文はこちら：\n${text}`; return; }
       const info = {};
       const res = await share.shareResult(blob, text, info);
@@ -129,7 +133,7 @@ export function createGame(root, canvas, deps) {
         g.goto('broken');
         return;
       }
-      liveMatch = matchRate(g.profile, g.target);
+      liveMatch = matchRate(g.profile, g.target, tipFrom);
       updateHud();
     }
   };
@@ -192,7 +196,7 @@ export function createGame(root, canvas, deps) {
         <h2>おしまい</h2><button class="btn primary" data-act="title">タイトルへ</button></div>`;
     }
     root.innerHTML = html;
-    root.querySelectorAll('[data-sil]').forEach((c) => { const ctx = c.getContext?.('2d'); if (ctx) drawSilhouette(ctx, buildTarget(st), { x: 6, y: 0, w: c.width - 12, h: c.height }); });
+    root.querySelectorAll('[data-sil]').forEach((c) => { const ctx = c.getContext?.('2d'); if (ctx) drawSilhouette(ctx, buildTarget(st).slice(Math.max(0, tipStartIndex(st) - 12)), { x: 6, y: 0, w: c.width - 12, h: c.height }); });
     if (name === 'cutting') { hud = root.querySelector('[data-hud]'); updateHud(); }
     on('[data-act="new"]', () => g.newGame());
     on('[data-act="cont"]', () => g.continueGame());

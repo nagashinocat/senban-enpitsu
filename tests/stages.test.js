@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { STAGES, buildTarget, INTRO, ENDING } from '../src/stages.js';
+import { STAGES, buildTarget, INTRO, ENDING, tipStartIndex } from '../src/stages.js';
 import { CORE_RADIUS, PENCIL_RADIUS, SAMPLES } from '../src/config.js';
 
 const localMinima = (t) => { let n = 0; for (let i = 2; i < t.length - 2; i++) if (t[i] < t[i - 1] - 1e-6 && t[i] <= t[i + 1]) n++; return n; };
@@ -20,6 +20,14 @@ test('どの面の話も1〜2行', () => {
 });
 test('1面目は先に向かって細くなる円すい', () => {
   const t = buildTarget(STAGES[0]);
-  expect(t[0]).toBeCloseTo(PENCIL_RADIUS); expect(t[SAMPLES - 1]).toBeLessThan(t[Math.floor(SAMPLES * 0.8)]);
+  expect(t[0]).toBeCloseTo(PENCIL_RADIUS); expect(t[SAMPLES - 1]).toBeLessThan(t[Math.floor(SAMPLES * 0.85)]);
 });
 test('導入とエンディングがある', () => { expect(INTRO.length).toBeGreaterThan(0); expect(ENDING.length).toBeGreaterThan(0); });
+test('どの面も、先端の部分より手前は元の太さのまま', () => {
+  for (const s of STAGES) {
+    const t = buildTarget(s); const k = tipStartIndex(s);
+    expect(s.tip).toBeGreaterThan(0); expect(s.tip).toBeLessThanOrEqual(0.4);
+    for (let i = 0; i < k; i++) expect(t[i]).toBeCloseTo(PENCIL_RADIUS);
+    expect(Math.min(...t.slice(k))).toBeLessThan(PENCIL_RADIUS * 0.9);
+  }
+});
