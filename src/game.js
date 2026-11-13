@@ -2,7 +2,7 @@ import { createProfile, cutSweep } from './profile.js';
 import { isBroken } from './breakage.js';
 import { matchRate, scoreResult } from './scoring.js';
 import { STAGES, KIWAMI, KIWAMI_INVITE, INTRO, ENDING, buildTarget, tipStartIndex } from './stages.js';
-import { MATCH_TOLERANCE, SPEED_MAX, SPEED_RAMP, LONG_PRESS, THIN_RATIO, PENCIL_RADIUS } from './config.js';
+import { MATCH_TOLERANCE, SPEED_MAX, SPEED_RAMP, SPEED_SPINUP, SPEED_DECAY, SPIN_MIN, THIN_RATIO, PENCIL_RADIUS } from './config.js';
 import { initCat, stepCat } from './cat.js';
 import catUrl from './assets/cat.webp';
 import { screenToTool } from './input.js';
@@ -35,8 +35,8 @@ export function createGame(root, canvas, deps) {
   };
   g.mode = 'story';
   g.spinning = false;
-  g.speed = 1;
-  let pressAt = null, ramping = false, lastLatheT = 0, catPrevSpeed = 1;
+  g.speed = 0;
+  let playerDown = false, catDown = false, lastLatheT = 0;
   const rng = deps.rng || Math.random;
   const DIFF_KEY = 'senban-enpitsu:difficulty';
   g.difficulty = 'normal';
@@ -46,7 +46,7 @@ export function createGame(root, canvas, deps) {
     try { globalThis.localStorage?.setItem(DIFF_KEY, g.difficulty); } catch { /* 保存できなくてもよい */ }
   };
   // ハードの猫
-  let catState = null, catHold = false, catPrevSpin = false;
+  let catState = null, catHold = false;
   function showCat(pose, say) {
     const el = root.querySelector('[data-cat]'); if (!el) return;
     el.className = `cat show ${pose}`;
@@ -57,7 +57,8 @@ export function createGame(root, canvas, deps) {
   // 速いほど、太い所は折れにくく、細い所は折れやすい
   g.breakFactorAt = (r) => {
     const bf = L()[g.state.stage]?.breakFactor ?? 1;
-    return r >= THIN_RATIO * PENCIL_RADIUS ? bf * g.speed : bf / g.speed;
+    const sp = Math.max(0.5, g.speed);
+    return r >= THIN_RATIO * PENCIL_RADIUS ? bf * sp : bf / sp;
   };
   g.tickCat = () => {
     if (g.difficulty !== 'hard' || g.state.name !== 'cutting' || !catState) return;
@@ -68,41 +69,39 @@ export function createGame(root, canvas, deps) {
       for (const a of r.actions) {
         if (a === 'warn') showCat('sneak', '（そろ〜り…）');
         else if (a === 'holdStart') {
-          catPrevSpin = g.spinning; catPrevSpeed = g.speed; catHold = true; pressAt = null;
-          g.speed = SPEED_MAX;
-          setSpinning(true, true);
+          catHold = true; catDown = true;
           showCat('hold', '（ぐいーっ）'); audio.playMeow?.('long'); audio.vibrate([60, 40, 60]);
         } else if (a === 'holdEnd') {
-          catHold = false; g.speed = catPrevSpeed; setSpinning(catPrevSpin, true); applySpeed(); hideCat();
+          catHold = false; catDown = false; hideCat();
         } else if (a === 'nyaStart') { showCat('nya', 'にゃにゃにゃにゃ！'); audio.playMeow?.('nya'); }
-        else if (a === 'tap') setSpinning(!g.spinning, true);
-        else if (a === 'nyaEnd') hideCat();
+        else if (a === 'tap') catDown = !catDown;
+        else if (a === 'nyaEnd') { catDown = false; hideCat(); }
       }
     }
   };
   const elapsed = () => (startedAt == null ? 0 : (now() - startedAt) / 1000);
+  // 旋盤：ボタンを押している間だけ回り、押し続けるほど速く、離すとゆっくり止まる
   function applySpeed() {
-    if (g.spinning) scene.setSpin(true, g.speed); else scene.setSpin(false);
-    audio.setMotorSpeed?.(g.spinning ? g.speed : 1);
+    scene.setSpin(g.spinning, g.spinning ? g.speed : 0);
+    audio.setMotorSpeed?.(Math.max(0.3, g.speed));
     const el = root.querySelector('[data-speed]'); if (el) el.textContent = `×${g.speed.toFixed(1)}`;
-  }
-  function setSpinning(on, byCat = false) {
-    const turboChanged = byCat;
-    if (g.spinning === on && !turboChanged) return;
-    const was = g.spinning;
-    g.spinning = on;
-    if (on && !was && !catHold) g.speed = 1;
-    applySpeed();
-    if (on && !was) {
-      audio.unlock(); audio.startMotor();
-      if (startedAt == null && g.state.name === 'cutting') {
-        startedAt = now();
-        if (g.difficulty === 'hard') catState = initCat(0, rng);
-      }
-    } else if (!on && was) audio.stopMotor();
     const b = root.querySelector('[data-act="lathe"]');
-    if (b) { b.classList.toggle('on', on); b.querySelector('[data-lathe-label]').textContent = on ? '止める' : '回す'; }
-    root.querySelector('.hud-hint')?.classList.toggle('ready', on);
+    if (b) {
+      b.classList.toggle('on', g.spinning); b.classList.toggle('pressed', playerDown || catDown);
+      b.querySelector('[data-lathe-label]').textContent = playerDown || catDown ? '回転中' : g.spinning ? '止まりかけ' : '押して回す';
+    }
+  }
+  function startClock() {
+    if (startedAt == null && g.state.name === 'cutting') {
+      startedAt = now();
+      if (g.difficulty === 'hard') catState = initCat(0, rng);
+    }
+  }
+  function stopLathe() {
+    const was = g.speed > 0;
+    playerDown = false; catDown = false; g.speed = 0; g.spinning = false;
+    if (was) audio.stopMotor();
+    applySpeed();
   }
   const L = () => (g.mode === 'kiwami' ? KIWAMI : STAGES);
   const tol = () => L()[g.state.stage]?.tolerance ?? MATCH_TOLERANCE;
@@ -117,8 +116,8 @@ export function createGame(root, canvas, deps) {
   // --- 状態の切り替え ---
   g.goto = (name, stage = g.state.stage) => {
     audio.stopCutSound();
-    catHold = false; catState = null; pressAt = null; ramping = false;
-    setSpinning(false); g.speed = 1;
+    catHold = false; catState = null;
+    stopLathe();
     if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') g.mode = 'story';
     if (name === 'kiwami') g.mode = 'kiwami';
     g.state = { name, stage };
@@ -189,29 +188,25 @@ export function createGame(root, canvas, deps) {
       if (msg) msg.textContent = `共有できませんでした。投稿文はこちら：\n${text}`;
     } finally { sharing = false; }
   };
-  g.toggleLathe = () => { if (g.state.name === 'cutting' && !catHold) setSpinning(!g.spinning); };
-  // 軽く押す：回す／止める。長押し：だんだん速く
   g.latheDown = () => {
-    if (g.state.name !== 'cutting' || catHold) return;
-    pressAt = now(); lastLatheT = pressAt; ramping = false;
-    root.querySelector('[data-act="lathe"]')?.classList.add('pressed');
+    if (g.state.name !== 'cutting') return;
+    if (!playerDown && !catDown) lastLatheT = now();
+    playerDown = true; audio.unlock(); startClock(); applySpeed();
   };
-  g.latheUp = () => {
-    root.querySelector('[data-act="lathe"]')?.classList.remove('pressed');
-    if (pressAt == null) return;
-    const held = (now() - pressAt) / 1000;
-    pressAt = null;
-    if (!ramping && held < LONG_PRESS) g.toggleLathe();
-    ramping = false;
-  };
+  g.latheUp = () => { playerDown = false; applySpeed(); };
   g.tickLathe = () => {
     const t = now();
-    if (pressAt != null && !catHold && g.state.name === 'cutting' && (t - pressAt) / 1000 >= LONG_PRESS) {
-      if (!ramping) { ramping = true; if (!g.spinning) setSpinning(true); }
-      g.speed = Math.min(SPEED_MAX, g.speed + ((t - lastLatheT) / 1000) * SPEED_RAMP);
-      applySpeed();
-    }
+    const dt = Math.min(0.25, Math.max(0, (t - lastLatheT) / 1000));
     lastLatheT = t;
+    if (g.state.name !== 'cutting') return;
+    const before = g.speed;
+    if (playerDown || catDown) g.speed = Math.min(SPEED_MAX, g.speed + dt * (g.speed < 1 ? SPEED_SPINUP : SPEED_RAMP));
+    else g.speed = Math.max(0, g.speed - dt * SPEED_DECAY);
+    if (before === 0 && g.speed > 0) audio.startMotor();
+    if (before > 0 && g.speed === 0) audio.stopMotor();
+    g.spinning = g.speed > SPIN_MIN;
+    if (g.spinning) root.querySelector('.hud-hint')?.remove();
+    applySpeed();
   };
   g.kiwamiUnlocked = () => clearedStageIds().has(STAGES[STAGES.length - 1].id);
   g.startKiwami = (i = 0) => { g.mode = 'kiwami'; g.goto('story', i); };
@@ -302,9 +297,9 @@ export function createGame(root, canvas, deps) {
     } else if (name === 'cutting') {
       html = `<div class="hud" data-hud>
         <div class="hud-top"><span>${label} ${esc(st.name)}</span><span>一致 <b data-match></b></span><span data-time></span></div>
-        <div class="hud-hint">まず下のボタンで旋盤を回そう（長押しで速く）。画面をなぞると刃が動き、指を上へ動かすと削れる。ゆっくり！</div>
+        <div class="hud-hint">下のボタンを押している間だけ旋盤が回る（押し続けると速く）。もう一方の指でなぞると刃が動き、上へ動かすと削れる。</div>
         <div class="cat" data-cat><img src="${catUrl}" alt="猫" draggable="false"><div class="cat-say"></div></div>
-        <button class="lathe-btn" data-act="lathe"><span class="lathe-dot"></span><span data-lathe-label>回す</span><span class="lathe-speed" data-speed>×1.0</span></button>
+        <button class="lathe-btn" data-act="lathe"><span class="lathe-dot"></span><span data-lathe-label>押して回す</span><span class="lathe-speed" data-speed>×1.0</span></button>
         <button class="btn primary done" data-act="finish">完成</button></div>`;
     } else if (name === 'broken') {
       html = `<div class="panel center"><h2 class="boom">ポキッ！</h2><p class="line">折れた…</p>
@@ -338,7 +333,7 @@ export function createGame(root, canvas, deps) {
     const lb = root.querySelector('[data-act="lathe"]');
     if (lb) {
       lb.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); audio.unlock(); try { lb.setPointerCapture(e.pointerId); } catch { /* なくてもよい */ } g.latheDown(); });
-      for (const ev of ['pointerup', 'pointercancel']) lb.addEventListener(ev, (e) => { e.stopPropagation(); g.latheUp(); });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) lb.addEventListener(ev, (e) => { e.stopPropagation(); g.latheUp(); });
       lb.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     on('[data-act="difficulty"]', () => { g.setDifficulty(g.difficulty === 'hard' ? 'normal' : 'hard'); render(); });

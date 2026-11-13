@@ -18,8 +18,10 @@ export const DEPTH_GAIN = 0.35;
 export const TOOL_HALF_WIDTH = 0.04;
 export const TOOL_REST_R = 0.6; // 刃の待機位置（鉛筆の外）
 
-// 旋盤の速さ：ボタンを長押しすると上がる
+// 旋盤の速さ：ボタンを押している間だけ回り、押し続けるほど速く、離すとゆっくり止まる
 export const SPEED_MAX = 2.5;
-export const SPEED_RAMP = 0.8;   // 1秒あたりの上がり方
-export const LONG_PRESS = 0.3;   // これより長く押すと長押し（秒）
+export const SPEED_SPINUP = 2.5; // 0→1 までの上がり方（1秒あたり）
+export const SPEED_RAMP = 0.8;   // 1→最高速 までの上がり方（1秒あたり）
+export const SPEED_DECAY = 1.2;  // 離したあとの下がり方（1秒あたり）
+export const SPIN_MIN = 0.15;    // これより遅いと削れない
 export const THIN_RATIO = 0.5;   // これより細い所は、速いほど折れやすい

@@ -4,7 +4,9 @@ import { createGame } from '../src/game.js';
 import { PENCIL_RADIUS } from '../src/config.js';
 import { _resetForTest } from '../src/storage.js';
 import { CAT } from '../src/cat.js';
-import { SPEED_MAX, LONG_PRESS } from '../src/config.js';
+import { STAGES } from '../src/stages.js';
+const STAGES0_BF = STAGES[0].breakFactor;
+import { SPEED_MAX } from '../src/config.js';
 
 function fakeDeps() {
   const scene = { view: { xMin: 0, xMax: 6, yMin: -1, yMax: 1 }, setProfile: vi.fn(), markDirty: vi.fn(), setTarget: vi.fn(),
@@ -19,6 +21,8 @@ function setup() {
   const game = createGame(document.getElementById('ui'), document.getElementById('stage'), f.deps);
   return { game, ...f };
 }
+const spinUp = (game, tick, sec = 0.5) => { game.latheDown(); for (let t = 0; t < sec - 1e-9; t += 0.05) { tick(0.05); game.tickLathe(); } };
+const coast = (game, tick, sec) => { for (let t = 0; t < sec - 1e-9; t += 0.05) { tick(0.05); game.tickLathe(); } };
 beforeEach(() => { localStorage.clear(); _resetForTest(); URL.createObjectURL = () => 'blob:x'; });
 
 test('C ランクでも次の面へ進める', () => {
@@ -31,9 +35,9 @@ test('C ランクでも次の面へ進める', () => {
   expect(game.state).toEqual({ name: 'story', stage: 1 });
 });
 test('折れたら同じ面の cutting に戻り、輪郭が新品になる', () => {
-  const { game, audio } = setup();
+  const { game, audio, tick } = setup();
   game.goto('cutting', 2);
-  game.toggleLathe();
+  spinUp(game, tick, 0.4);
   game.handleStart(); game.handleMove({ x: 2, r: 0 }); game.handleMove({ x: 2, r: -3 });
   expect(game.state.name).toBe('broken');
   expect(audio.playBreak).toHaveBeenCalled();
@@ -42,9 +46,9 @@ test('折れたら同じ面の cutting に戻り、輪郭が新品になる', ()
   expect(game.profile.radii.every(r => Math.abs(r - PENCIL_RADIUS) < 1e-6)).toBe(true);
 });
 test('ゆっくり削れば折れずに細くなる', () => {
-  const { game } = setup();
+  const { game, tick } = setup();
   game.goto('cutting', 0);
-  game.toggleLathe();
+  spinUp(game, tick, 0.4);
   game.handleStart(); game.handleMove({ x: 2, r: 0 });
   for (let k = 1; k <= 60; k++) game.handleMove({ x: 2, r: -0.02 * k });
   expect(game.state.name).toBe('cutting');
@@ -57,7 +61,7 @@ test('最終面の result の次は ending', () => {
 });
 test('完成のタイムは、最初に旋盤を回してからの秒数', () => {
   const { game, tick } = setup();
-  game.goto('cutting', 0); tick(30); game.toggleLathe(); tick(12.5); game.finish();
+  game.goto('cutting', 0); tick(30); game.latheDown(); tick(12.5); game.finish();
   expect(game.lastResult.seconds).toBeCloseTo(12.5);
 });
 test('記録が保存され、次の面が選べるようになる', () => {
@@ -176,21 +180,25 @@ test('旋盤が止まっている間は削れず、刃は表面で止まる', ()
   expect(game.tool.r).toBeGreaterThanOrEqual(PENCIL_RADIUS - 1e-6);
   expect(game.state.name).toBe('cutting');
 });
-test('回転ボタンで回すと削れ、もう一度押すと止まる', () => {
-  const { game, scene, audio } = setup();
+test('ボタンを押している間は回って削れ、離すとゆっくり止まる', () => {
+  const { game, scene, audio, tick } = setup();
   game.goto('cutting', 0);
-  game.toggleLathe(); expect(game.spinning).toBe(true);
-  expect(scene.setSpin).toHaveBeenLastCalledWith(true, 1); expect(audio.startMotor).toHaveBeenCalled();
+  spinUp(game, tick, 0.5);
+  expect(game.spinning).toBe(true); expect(audio.startMotor).toHaveBeenCalled();
+  expect(scene.setSpin.mock.lastCall[0]).toBe(true);
   game.handleStart(); game.handleMove({ x: 2, r: 0 });
   for (let k = 1; k <= 60; k++) game.handleMove({ x: 2, r: -0.02 * k });
   expect(Math.min(...game.profile.radii)).toBeLessThan(PENCIL_RADIUS - 0.05);
-  game.toggleLathe(); expect(game.spinning).toBe(false); expect(audio.stopMotor).toHaveBeenCalled();
-  expect(document.querySelector('[data-act="lathe"]').textContent).toContain('回す');
+  game.latheUp();
+  const sp = game.speed;
+  coast(game, tick, 0.3); expect(game.spinning).toBe(true); expect(game.speed).toBeLessThan(sp);   // ゆっくり
+  coast(game, tick, 3); expect(game.spinning).toBe(false); expect(game.speed).toBe(0);
+  expect(audio.stopMotor).toHaveBeenCalled();
 });
 test('面を終えたり折れたりすると旋盤は止まる', () => {
-  const { game, scene } = setup();
-  game.goto('cutting', 0); game.toggleLathe(); game.finish();
-  expect(game.spinning).toBe(false); expect(scene.setSpin).toHaveBeenLastCalledWith(false);
+  const { game, scene, tick } = setup();
+  game.goto('cutting', 0); spinUp(game, tick); game.finish();
+  expect(game.spinning).toBe(false); expect(scene.setSpin).toHaveBeenLastCalledWith(false, 0);
 });
 test('場面に合わせて曲が切り替わる', () => {
   document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
@@ -218,26 +226,26 @@ test('難易度はタイトルで切り替えられ、次に開いた時も残�
 });
 test('ふつうでは猫は来ない', () => {
   const { game, tick } = hardSetup([0]);
-  game.goto('cutting', 0); game.toggleLathe();
+  game.goto('cutting', 0); game.latheDown();
   for (let k = 0; k < 60; k++) { tick(1); game.tickCat(); }
   expect(document.querySelector('[data-cat]').className).not.toContain('show');
 });
 test('ハード：猫が長押しすると、止められない最高速になる', () => {
   const { game, tick, scene, audio } = hardSetup([0, 0.2, 0.5]);
   game.setDifficulty('hard');
-  game.goto('cutting', 0); game.toggleLathe(); game.toggleLathe(); // 回して止めておく
-  tick(8); game.tickCat();
+  game.goto('cutting', 0); spinUp(game, tick, 0.3); game.latheUp(); coast(game, tick, 3); // 回して止めておく
+  tick(4.7); game.tickCat();
   expect(document.querySelector('[data-cat]').className).toContain('sneak');
   expect(document.querySelector('.cat-say').textContent).toContain('そろ');
   expect(document.querySelector('[data-cat] img')).not.toBeNull();
-  tick(CAT.WARN); game.tickCat();
+  tick(CAT.WARN); game.tickCat(); coast(game, tick, 2.5);
   expect(game.spinning).toBe(true); expect(game.speed).toBeCloseTo(SPEED_MAX);
   expect(scene.setSpin).toHaveBeenLastCalledWith(true, SPEED_MAX);
-  game.toggleLathe(); expect(game.spinning).toBe(true);           // 止められない
+  game.latheDown(); game.latheUp(); coast(game, tick, 0.2); expect(game.speed).toBeCloseTo(SPEED_MAX); // 離しても止まらない
   expect(document.querySelector('.cat-say').textContent).toContain('ぐいーっ');
-  tick(3); game.tickCat();
-  expect(game.spinning).toBe(false);                                // 元に戻る
-  expect(game.speed).toBeCloseTo(1);
+  tick(0.3); game.tickCat();                                        // 猫が離す
+  coast(game, tick, 3);
+  expect(game.spinning).toBe(false);                                // ゆっくり止まる
   expect(document.querySelector('[data-cat]').className).not.toContain('show');
   expect(document.querySelector('[data-cat]').className).toContain('leave');
   expect(audio.playMeow).toHaveBeenCalled();
@@ -245,12 +253,12 @@ test('ハード：猫が長押しすると、止められない最高速にな�
 test('ハード：にゃにゃにゃにゃで回ったり止まったりする', () => {
   const { game, tick } = hardSetup([0, 0.9, 0.5]);
   game.setDifficulty('hard');
-  game.goto('cutting', 0); game.toggleLathe();
+  game.goto('cutting', 0); game.latheDown(); game.latheUp(); coast(game, tick, 3);
   tick(8); game.tickCat(); tick(CAT.WARN); game.tickCat();
   expect(document.querySelector('.cat-say').textContent).toBe('にゃにゃにゃにゃ！');
-  const states = new Set([game.spinning]); let flips = 0, prev = game.spinning;
-  for (let k = 0; k < 40; k++) { tick(0.05); game.tickCat(); if (game.spinning !== prev) { flips++; prev = game.spinning; } states.add(game.spinning); }
-  expect(flips).toBeGreaterThanOrEqual(6);
+  let ups = 0, downs = 0, prev = game.speed;
+  for (let k = 0; k < 40; k++) { tick(0.05); game.tickCat(); game.tickLathe(); if (game.speed > prev + 1e-6) ups++; if (game.speed < prev - 1e-6) downs++; prev = game.speed; }
+  expect(ups).toBeGreaterThanOrEqual(5); expect(downs).toBeGreaterThanOrEqual(5);   // 回ったり止まりかけたり
   expect(document.querySelector('[data-cat]').className).not.toContain('show');
 });
 test('ハード：旋盤を回すまでは猫は来ず、面を出ると猫もいなくなる', () => {
@@ -258,43 +266,23 @@ test('ハード：旋盤を回すまでは猫は来ず、面を出ると猫も�
   game.setDifficulty('hard');
   game.goto('cutting', 0); tick(30); game.tickCat();
   expect(document.querySelector('[data-cat]').className).not.toContain('show');
-  game.toggleLathe(); tick(8); game.tickCat(); tick(CAT.WARN); game.tickCat();
+  game.latheDown(); tick(8); game.tickCat(); tick(CAT.WARN); game.tickCat();
   game.finish();
   expect(game.spinning).toBe(false); expect(document.querySelector('[data-cat]')).toBeNull();
   expect(game.lastResult.hard).toBe(true);
   expect(document.querySelector('[data-result] .kicker').textContent).toContain('ハード');
 });
-test('ボタンを軽く押すと回す／止める', () => {
-  const { game } = setup();
-  game.goto('cutting', 0);
-  game.latheDown(); game.latheUp(); expect(game.spinning).toBe(true);
-  game.latheDown(); game.latheUp(); expect(game.spinning).toBe(false);
-});
-test('ボタンを長押しすると回転がだんだん速くなり、離してもその速さのまま', () => {
-  const { game, tick, scene } = setup();
-  game.goto('cutting', 0);
-  game.latheDown();
-  for (let k = 0; k < 20; k++) { tick(0.1); game.tickLathe(); }
-  expect(game.spinning).toBe(true); expect(game.speed).toBeGreaterThan(1.8);
-  game.latheUp(); expect(game.spinning).toBe(true);
-  const sp = game.speed; tick(1); game.tickLathe(); expect(game.speed).toBeCloseTo(sp);
-  expect(scene.setSpin).toHaveBeenLastCalledWith(true, sp);
-  expect(document.querySelector('[data-speed]').textContent).toBe(`×${sp.toFixed(1)}`);
-  for (let k = 0; k < 60; k++) { game.latheDown(); tick(0.1); game.tickLathe(); }
-  expect(game.speed).toBeLessThanOrEqual(SPEED_MAX);
-});
-test('止めて回し直すと、速さは元に戻る', () => {
+test('押し続けるほど速くなり、最高速で止まる', () => {
   const { game, tick } = setup();
   game.goto('cutting', 0);
-  game.latheDown(); for (let k = 0; k < 20; k++) { tick(0.1); game.tickLathe(); } game.latheUp();
-  game.latheDown(); game.latheUp(); expect(game.spinning).toBe(false);
-  game.latheDown(); game.latheUp(); expect(game.speed).toBe(1);
+  spinUp(game, tick, 0.5); const s1 = game.speed;
+  coast(game, tick, 1); expect(game.speed).toBeGreaterThan(s1);
+  expect(document.querySelector('[data-speed]').textContent).toBe(`×${game.speed.toFixed(1)}`);
+  coast(game, tick, 10); expect(game.speed).toBeCloseTo(SPEED_MAX);
 });
 test('速く回すと、太い所は折れにくく、細い所は折れやすい', () => {
   const { game, tick } = setup();
-  game.goto('cutting', 0); game.toggleLathe();
-  const thick = game.breakFactorAt(0.35), thin = game.breakFactorAt(0.1);
-  game.latheDown(); for (let k = 0; k < 20; k++) { tick(0.1); game.tickLathe(); } game.latheUp();
-  expect(game.breakFactorAt(0.35)).toBeCloseTo(thick * game.speed);
-  expect(game.breakFactorAt(0.1)).toBeCloseTo(thin / game.speed);
+  game.goto('cutting', 0); spinUp(game, tick, 3);
+  expect(game.breakFactorAt(0.35)).toBeCloseTo(STAGES0_BF * game.speed);
+  expect(game.breakFactorAt(0.1)).toBeCloseTo(STAGES0_BF / game.speed);
 });
