@@ -190,3 +190,12 @@ test('面を終えたり折れたりすると旋盤は止まる', () => {
   game.goto('cutting', 0); game.toggleLathe(); game.finish();
   expect(game.spinning).toBe(false); expect(scene.setSpin).toHaveBeenLastCalledWith(false);
 });
+test('場面に合わせて曲が切り替わる', () => {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps(); const bgm = { play: vi.fn() };
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, bgm });
+  game.start(); expect(bgm.play).toHaveBeenLastCalledWith('story');
+  game.goto('cutting', 4); game.finish(); game.startKiwami(0); expect(bgm.play).toHaveBeenLastCalledWith('kiwami');
+  game.goto('cutting'); expect(bgm.play).toHaveBeenLastCalledWith('kiwami');
+  game.goto('title', 0); expect(bgm.play).toHaveBeenLastCalledWith('story');
+});

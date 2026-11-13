@@ -61,6 +61,7 @@ export function createGame(root, canvas, deps) {
     if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') g.mode = 'story';
     if (name === 'kiwami') g.mode = 'kiwami';
     g.state = { name, stage };
+    deps.bgm?.play(g.mode === 'kiwami' ? 'kiwami' : 'story');
     scene.setZoom(name === 'cutting');
     const tipX = () => tipStartIndex(L()[stage]) * g.profile.dx;
     if (name === 'cutting') {

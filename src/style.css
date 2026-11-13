@@ -88,3 +88,6 @@ h2 { font-size: 28px; margin: 0; }
 .lathe-btn.on { background: radial-gradient(circle at 40% 35%, #7cf09a, #1e9b45 70%); box-shadow: 0 6px 0 #0d4a20, 0 0 0 4px #f2b632, 0 0 22px #5cff8a88; }
 .lathe-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff6; }
 .lathe-btn.on .lathe-dot { background: #fff; animation: blink 0.5s infinite; }
+#bgm-toggle { position: fixed; top: calc(52px + env(safe-area-inset-top, 0)); right: 10px; z-index: 5; width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid #f4f1ea55; background: #2d333ccc; color: #f4f1ea; font-size: 20px; cursor: pointer; }
+#bgm-toggle.off { opacity: .55; text-decoration: line-through; }
