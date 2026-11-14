@@ -286,3 +286,7 @@ test('速く回すと、太い所は折れにくく、細い所は折れやす�
   expect(game.breakFactorAt(0.35)).toBeCloseTo(STAGES0_BF * game.speed);
   expect(game.breakFactorAt(0.1)).toBeCloseTo(STAGES0_BF / game.speed);
 });
+test('タイトル画面にゲームの名前', () => {
+  const { game } = setup(); game.start();
+  expect(document.querySelector('h1').textContent.replace(/\s/g, '')).toBe('鉛筆削りがなかった僕は、旋盤で削ることにした。');
+});

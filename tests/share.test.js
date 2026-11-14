@@ -46,3 +46,8 @@ test('clipboard がなくても落ちない', async () => {
 test('ハードのときは投稿文にハードと入る', () => {
   expect(buildShareText({ stageName: 'こけし', rank: 'A', total: 912, seconds: 28.43, hard: true })).toContain('ハード');
 });
+test('ゲームの名前と遊べる場所が投稿文に入る', () => {
+  const t = buildShareText({ stageName: 'こけし', rank: 'A', total: 912, seconds: 28.43 });
+  expect(t).toContain('鉛筆削りがなかった僕は、旋盤で削ることにした。');
+  expect(t).toContain('https://nagashinocat.github.io/senban-enpitsu/');
+});

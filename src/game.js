@@ -273,8 +273,7 @@ export function createGame(root, canvas, deps) {
     if (name === 'title') {
       const hasSave = Object.keys(loadRecords()).length > 0;
       html = `<div class="panel center">
-        <div class="kicker">鉛筆削りを忘れたので</div>
-        <h1>旋盤で<br>鉛筆を削る</h1>
+        <h1 class="title"><span class="t-small">鉛筆削りが</span><span class="t-small">なかった僕は、</span><span>旋盤で</span><span>削ることにした。</span></h1>
         <button class="btn diff ${g.difficulty === 'hard' ? 'hard' : ''}" data-act="difficulty">難易度：${g.difficulty === 'hard' ? 'ハード（猫が来る）' : 'ふつう'}</button>
         <button class="btn primary" data-act="new">はじめから</button>
         ${hasSave ? '<button class="btn" data-act="cont">つづきから</button><button class="btn" data-act="select">面をえらぶ</button>' : ''}

@@ -1,9 +1,10 @@
 import { drawSilhouette } from './silhouette.js';
 
-export const GAME_NAME = '旋盤で鉛筆を削る';
+export const GAME_NAME = '鉛筆削りがなかった僕は、旋盤で削ることにした。';
+export const GAME_URL = 'https://nagashinocat.github.io/senban-enpitsu/';
 
 export function buildShareText({ stageName, rank, total, seconds, hard }) {
-  return `【${GAME_NAME}】${hard ? '【ハード】' : ''}${stageName} ランク${rank}（${total}点・${seconds.toFixed(1)}秒）\n#旋盤で鉛筆を削る`;
+  return `【${GAME_NAME}】${hard ? '【ハード】' : ''}${stageName} ランク${rank}（${total}点・${seconds.toFixed(1)}秒）\n${GAME_URL}\n#旋盤で鉛筆を削る`;
 }
 
 const RANK_COLOR = { S: '#ffd84d', A: '#7fe3ff', B: '#a8e07a', C: '#c9b9a6' };
@@ -12,8 +13,8 @@ const RANK_COLOR = { S: '#ffd84d', A: '#7fe3ff', B: '#a8e07a', C: '#c9b9a6' };
 export function drawResultCard(ctx, { image, target, profile, from = 0, stageName, rank, total, seconds }) {
   const S = 1080;
   ctx.fillStyle = '#20242b'; ctx.fillRect(0, 0, S, S);
-  ctx.fillStyle = '#f2b632'; ctx.font = 'bold 56px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(GAME_NAME, S / 2, 100);
+  ctx.fillStyle = '#f2b632'; ctx.font = 'bold 40px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('鉛筆削りがなかった僕は、', S / 2, 70); ctx.fillText('旋盤で削ることにした。', S / 2, 120);
   ctx.fillStyle = '#f4f1ea'; ctx.font = '40px sans-serif'; ctx.fillText(stageName, S / 2, 170);
   if (image) {
     // 3D 画面の中央（鉛筆のあたり）を切り出す
