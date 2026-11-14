@@ -1,0 +1,19 @@
+<!doctype html><html><body style="margin:0;background:#20242b;color:#f4f1ea;font:bold 18px sans-serif">
+<div id="g" style="display:grid;grid-template-columns:repeat(4,200px);gap:6px;padding:8px"></div>
+<script type="module">
+import { createTrophyView } from '../src/render/trophy.js';
+import { STAGES, KIWAMI, buildTarget, tipStartIndex } from '../src/stages.js';
+import { createProfile } from '../src/profile.js';
+const g = document.getElementById('g');
+const ids = new URLSearchParams(location.search).get('s').split(',');
+for (const id of ids) for (const rank of ['S', 'A', 'B', 'C']) {
+  const st = [...STAGES, ...KIWAMI].find((s) => s.id === id);
+  const t = buildTarget(st), k = tipStartIndex(st), p = createProfile();
+  const err = { S: 0.004, A: 0.012, B: 0.025, C: 0.05 }[rank];
+  for (let i = 0; i < t.length; i++) p.radii[i] = Math.max(0, t[i] - err * (i >= k ? (1 + Math.sin(i * 0.7)) : 0));
+  const box = document.createElement('div'); box.innerHTML = `<div>${st.name} ${rank}</div>`;
+  const cv = document.createElement('canvas'); cv.style.cssText = 'width:200px;height:300px'; box.appendChild(cv); g.appendChild(box);
+  createTrophyView(cv).show({ profile: p, target: t, tipFrom: k, stageId: id, rank });
+}
+setTimeout(() => (document.title = 'ready'), 1500);
+</script></body></html>

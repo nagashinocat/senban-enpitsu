@@ -33,9 +33,12 @@ const ROWS = [
 export function resultHtml(r, { stageIndex, last, kicker, nextLabel }) {
   return `<div class="panel center result" data-result>
     <div class="kicker">${esc(kicker || `第${stageIndex + 1}面 ${r.stageName}`)}</div>
-    <div class="score-board">
+    <div class="result-top">
+      <canvas class="trophy" data-trophy aria-label="削った鉛筆"></canvas>
+      <div class="score-board">
       ${ROWS.map((row) => `<div class="score-row${row.key === 'total' ? ' total' : ''}" data-row="${row.key}"><span>${row.label}</span><b data-val="${row.key}"></b></div>`).join('')}
       <div class="hanko rank-${r.rank}"><span class="hanko-rank">${esc(r.rank)}</span><span class="hanko-sub">判定</span></div>
+    </div>
     </div>
     <div class="result-side">
     <div class="master"><div class="master-pic"><canvas width="680" height="300" data-mood="${esc(r.rank)}" aria-label="伝説の鉛筆削り名人"></canvas></div>

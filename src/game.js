@@ -46,7 +46,7 @@ export function createGame(root, canvas, deps) {
     try { globalThis.localStorage?.setItem(DIFF_KEY, g.difficulty); } catch { /* 保存できなくてもよい */ }
   };
   // ハードの猫
-  let catState = null, catHold = false;
+  let catState = null, catHold = false, trophyView = null;
   function showCat(pose, say) {
     const el = root.querySelector('[data-cat]'); if (!el) return;
     el.className = `cat show ${pose}`;
@@ -116,6 +116,7 @@ export function createGame(root, canvas, deps) {
   // --- 状態の切り替え ---
   g.goto = (name, stage = g.state.stage) => {
     audio.stopCutSound();
+    if (trophyView) { trophyView.dispose(); trophyView = null; }
     catHold = false; catState = null;
     stopLathe();
     if (name === 'title' || name === 'intro' || name === 'select' || name === 'ending') g.mode = 'story';
@@ -343,6 +344,13 @@ export function createGame(root, canvas, deps) {
       const panel = root.querySelector('[data-result]');
       const ctl = playResult(panel, g.lastResult, { audio, setTimer: deps.setTimer || ((f, ms) => setTimeout(f, ms)) });
       panel.addEventListener('click', () => ctl.skip());
+      const cv = root.querySelector('[data-trophy]');
+      if (cv && deps.createTrophyView) {
+        try {
+          trophyView = deps.createTrophyView(cv);
+          trophyView.show({ profile: g.profile, target: g.target, tipFrom, stageId: L()[stage].id, rank: g.lastResult.rank });
+        } catch { trophyView = null; }
+      }
     }
     root.querySelectorAll('[data-stage]').forEach((b) => b.addEventListener('click', () => g.goto('story', +b.dataset.stage)));
   }

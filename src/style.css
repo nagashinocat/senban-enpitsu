@@ -113,3 +113,14 @@ h2 { font-size: 28px; margin: 0; }
 .lathe-btn [data-lathe-label] { font-size: 14px; white-space: nowrap; }
 h1.title { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: clamp(30px, 9.5vw, 54px); }
 h1.title .t-small { font-size: .62em; color: #f4f1ea; text-shadow: none; letter-spacing: .06em; }
+/* リザルト：左に削った鉛筆 */
+.result-top { display: flex; align-items: center; gap: 8px; }
+.trophy { width: min(30vw, 130px); height: 270px; flex: none; touch-action: none; border-radius: 14px;
+  background: radial-gradient(ellipse at 50% 60%, #ffffff14, transparent 70%); }
+.result-top .score-board { width: min(58vw, 300px); }
+@media (orientation: landscape) and (max-height: 560px) {
+  .trophy { width: 96px; height: 220px; }
+  .result-top .score-board { width: 270px; padding-top: 40px; }
+  .result .master { width: 300px; }
+  .result .master-pic canvas { max-height: 120px; object-fit: cover; }
+}

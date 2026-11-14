@@ -290,3 +290,17 @@ test('タイトル画面にゲームの名前', () => {
   const { game } = setup(); game.start();
   expect(document.querySelector('h1').textContent.replace(/\s/g, '')).toBe('鉛筆削りがなかった僕は、旋盤で削ることにした。');
 });
+test('リザルト画面の左で、削った鉛筆を立体で見せる', () => {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps(); const view = { show: vi.fn(), dispose: vi.fn() };
+  const createTrophyView = vi.fn(() => view);
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, createTrophyView });
+  game.goto('cutting', 2); game.finish();
+  const cv = document.querySelector('.result-top [data-trophy]');
+  expect(cv).not.toBeNull();
+  expect(cv.compareDocumentPosition(document.querySelector('.score-board')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // 左（先）
+  expect(createTrophyView).toHaveBeenCalledWith(cv);
+  const arg = view.show.mock.calls[0][0];
+  expect(arg.stageId).toBe('kokeshi'); expect(arg.rank).toBe(game.lastResult.rank); expect(arg.profile).toBe(game.profile);
+  game.next(); expect(view.dispose).toHaveBeenCalled();
+});
