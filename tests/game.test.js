@@ -304,3 +304,40 @@ test('リザルト画面の左で、削った鉛筆を立体で見せる', () =>
   expect(arg.stageId).toBe('kokeshi'); expect(arg.rank).toBe(game.lastResult.rank); expect(arg.profile).toBe(game.profile);
   game.next(); expect(view.dispose).toHaveBeenCalled();
 });
+function counterSetup(total = 12345) {
+  document.body.innerHTML = '<canvas id="stage"></canvas><div id="ui"></div>';
+  const f = fakeDeps(); let n = total;
+  const counter = { get: vi.fn(() => Promise.resolve(n)), add: vi.fn(() => Promise.resolve(++n)) };
+  const game = createGame(document.getElementById('ui'), document.getElementById('stage'), { ...f.deps, counter });
+  return { game, counter, ...f };
+}
+const flush = () => new Promise((r) => setTimeout(r, 0));
+test('タイトルに、みんなが削った鉛筆の本数が出る', async () => {
+  const { game } = counterSetup(12345); game.start(); await flush();
+  expect(document.querySelector('[data-counter]').textContent).toContain('12,345');
+});
+test('削って完成すると1本数えて、リザルトに何本目か出る', async () => {
+  const { game, counter, tick } = counterSetup(99);
+  game.goto('cutting', 0); spinUp(game, tick, 0.4);
+  game.handleStart(); game.handleMove({ x: 2, r: 0 }); for (let k = 1; k <= 40; k++) game.handleMove({ x: 2, r: -0.02 * k });
+  game.finish(); await flush();
+  expect(counter.add).toHaveBeenCalledTimes(1);
+  expect(document.querySelector('[data-pencil-no]').textContent).toContain('100本目');
+});
+test('削らずに完成した時は数えない', async () => {
+  const { game, counter } = counterSetup(); game.goto('cutting', 0); game.finish(); await flush();
+  expect(counter.add).not.toHaveBeenCalled();
+});
+test('折れた鉛筆も1本と数える（1本につき1回だけ）', async () => {
+  const { game, counter, tick } = counterSetup();
+  game.goto('cutting', 2); spinUp(game, tick, 0.4);
+  game.handleStart(); game.handleMove({ x: 2, r: 0 }); game.handleMove({ x: 2, r: -3 });
+  expect(game.state.name).toBe('broken'); await flush();
+  expect(counter.add).toHaveBeenCalledTimes(1);
+  game.retry(); game.finish(); await flush();
+  expect(counter.add).toHaveBeenCalledTimes(1);
+});
+test('数える場所が無くても遊べる', () => {
+  const { game } = setup(); game.start();
+  expect(document.querySelector('[data-counter]')?.textContent || '').toBe('');
+});

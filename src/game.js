@@ -107,7 +107,15 @@ export function createGame(root, canvas, deps) {
   const tol = () => L()[g.state.stage]?.tolerance ?? MATCH_TOLERANCE;
   let ref = null, startedAt = null, liveMatch = 0, cutLevel = 0, tipFrom = 0;
 
+  let counted = false;
+  function countPencil(onNo) {
+    if (counted || !deps.counter) return;
+    if (!g.profile.radii.some((r) => r < PENCIL_RADIUS - 1e-4)) return; // 削っていない鉛筆は数えない
+    counted = true;
+    deps.counter.add().then((n) => { if (n != null) onNo?.(n); }).catch(() => {});
+  }
   function freshPencil() {
+    counted = false;
     g.profile = createProfile();
     g.tool = { x: PENCIL_LENGTH / 2, r: TOOL_REST_R };
     scene.setProfile(g.profile); scene.setTool(g.tool);
@@ -154,7 +162,9 @@ export function createGame(root, canvas, deps) {
     g.lastResult = { ...s, seconds, stageId: stage.id, stageName: stage.name, hard: g.difficulty === 'hard' };
     saveResult(stage.id, { total: s.total, rank: s.rank, seconds });
     audio.playDing(); audio.vibrate(30);
+    const keep = g.profile;
     g.goto('result');
+    if (g.profile === keep) countPencil((n) => { g.lastResult.pencilNo = n; const el = root.querySelector('[data-pencil-no]'); if (el) el.textContent = `この鉛筆は、みんなで削った ${n.toLocaleString()}本目`; });
   };
   g.next = () => {
     const i = g.state.stage;
@@ -248,6 +258,7 @@ export function createGame(root, canvas, deps) {
       audio.setCutIntensity(cutLevel);
       if (isBroken(g.profile, cut, g.breakFactorAt(g.profile.radii[cut.biteAt]))) {
         scene.flashBreak(); audio.stopCutSound(); audio.playBreak(); audio.vibrate([80, 40, 120]);
+        countPencil();
         g.goto('broken');
         return;
       }
@@ -275,6 +286,7 @@ export function createGame(root, canvas, deps) {
       const hasSave = Object.keys(loadRecords()).length > 0;
       html = `<div class="panel center">
         <h1 class="title"><span class="t-small">鉛筆削りが</span><span class="t-small">なかった僕は、</span><span>旋盤で</span><span>削ることにした。</span></h1>
+        <div class="counter" data-counter></div>
         <button class="btn diff ${g.difficulty === 'hard' ? 'hard' : ''}" data-act="difficulty">難易度：${g.difficulty === 'hard' ? 'ハード（猫が来る）' : 'ふつう'}</button>
         <button class="btn primary" data-act="new">はじめから</button>
         ${hasSave ? '<button class="btn" data-act="cont">つづきから</button><button class="btn" data-act="select">面をえらぶ</button>' : ''}
@@ -340,6 +352,12 @@ export function createGame(root, canvas, deps) {
     on('[data-act="retry"]', () => g.retry());
     on('[data-act="next"]', () => g.next());
     on('[data-act="share"]', () => g.onShare?.());
+    if (name === 'title' && deps.counter) {
+      deps.counter.get().then((n) => {
+        const el = root.querySelector('[data-counter]');
+        if (el && n != null) el.innerHTML = `みんなで <b>${n.toLocaleString()}</b> 本の鉛筆を削りました`;
+      }).catch(() => {});
+    }
     if (name === 'result') {
       const panel = root.querySelector('[data-result]');
       const ctl = playResult(panel, g.lastResult, { audio, setTimer: deps.setTimer || ((f, ms) => setTimeout(f, ms)) });

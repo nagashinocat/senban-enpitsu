@@ -33,6 +33,7 @@ const ROWS = [
 export function resultHtml(r, { stageIndex, last, kicker, nextLabel }) {
   return `<div class="panel center result" data-result>
     <div class="kicker">${esc(kicker || `第${stageIndex + 1}面 ${r.stageName}`)}</div>
+    <div class="pencil-no" data-pencil-no></div>
     <div class="result-top">
       <canvas class="trophy" data-trophy aria-label="削った鉛筆"></canvas>
       <div class="score-board">

@@ -124,3 +124,5 @@ h1.title .t-small { font-size: .62em; color: #f4f1ea; text-shadow: none; letter-
   .result .master { width: 300px; }
   .result .master-pic canvas { max-height: 120px; object-fit: cover; }
 }
+.counter { min-height: 1.4em; font-size: 15px; opacity: .9; } .counter b { color: #f2b632; font-size: 20px; }
+.pencil-no { min-height: 1.2em; font-size: 13px; color: #f2b632; }
