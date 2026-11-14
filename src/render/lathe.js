@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PENCIL_RADIUS, CORE_RADIUS } from '../config.js';
 
 export const SEG = 40; // 周方向の分割
-const PAINT = new THREE.Color('#f2b632');
+const PAINT = new THREE.Color('#1f8a4c'); // 鉛筆の塗装（緑）
 const WOOD = new THREE.Color('#e8c99a');
 const LEAD = new THREE.Color('#2b2b2e');
 

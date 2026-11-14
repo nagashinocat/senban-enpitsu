@@ -110,3 +110,4 @@ h2 { font-size: 28px; margin: 0; }
 .cat.sneak .cat-say { font-size: 13px; font-weight: normal; background: #ffffffcc; }
 .btn.diff.hard { background: #3a1d1d; border-color: #f0a54a; color: #f0a54a; }
 .lathe-speed { font-size: 12px; font-weight: bold; opacity: .9; font-variant-numeric: tabular-nums; }
+.lathe-btn [data-lathe-label] { font-size: 14px; white-space: nowrap; }
